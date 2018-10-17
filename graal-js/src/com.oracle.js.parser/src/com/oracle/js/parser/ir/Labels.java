@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, 2016, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2016, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -22,36 +22,22 @@
  * or visit www.oracle.com if you need additional information or have any
  * questions.
  */
-package com.oracle.js.parser;
 
+package com.oracle.js.parser.ir;
+
+import java.util.List;
+
+// @formatter:off
 /**
- * A ParserContextNode that represents a block that is currently being parsed
+ * Interface that can be used to get a list of all labels in a node
  */
-class ParserContextBlockNode extends ParserContextBaseNode implements ParserContextBreakableNode {
-
-    private final long token;
+public interface Labels {
 
     /**
-     * Constructs a ParserContextBlockNode
-     *
-     * @param token The first token of the block
+     * Return the labels associated with this node. Breakable nodes that
+     * aren't LoopNodes only have a break label - the location immediately
+     * afterwards the node in code
+     * @return list of labels representing locations around this node
      */
-    ParserContextBlockNode(final long token) {
-        this.token = token;
-    }
-
-    @Override
-    public boolean isBreakableWithoutLabel() {
-        return false;
-    }
-
-    /**
-     * Get token
-     *
-     * @return The first token of the block
-     */
-    public long getToken() {
-        return token;
-    }
-
+    List<Label> getLabels();
 }

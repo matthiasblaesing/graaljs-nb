@@ -249,7 +249,6 @@ suite = {
       "subDir" : "src",
       "sourceDirs" : ["src"],
       "dependencies" : [
-        "truffle:TRUFFLE_API",
       ],
       "exports" : [],
       "javaCompliance" : "1.8",
@@ -448,6 +447,18 @@ suite = {
   },
 
   "distributions" : {
+    "GRAAL_JS_PARSER" : {
+      "moduleName" : "com.oracle.js.parser",
+      "subDir" : "src",
+      "dependencies" : ["com.oracle.js.parser"],
+      "description" : "Graal Javascript parser",
+      "distDependencies" : [
+      ],
+      "maven" : {
+        "artifactId" : "js-parser",
+      },
+      "license":"UPL"
+    },
     "GRAALJS" : {
       "moduleName" : "org.graalvm.js",
       "subDir" : "src",

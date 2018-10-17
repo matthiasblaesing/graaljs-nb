@@ -1,42 +1,26 @@
 /*
- * Copyright (c) 2010, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2016, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
- * The Universal Permissive License (UPL), Version 1.0
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the LICENSE file that accompanied this code.
  *
- * Subject to the condition set forth below, permission is hereby granted to any
- * person obtaining a copy of this software, associated documentation and/or
- * data (collectively the "Software"), free of charge and under any and all
- * copyright rights in the Software, and any and all patent rights owned or
- * freely licensable by each licensor hereunder covering either (i) the
- * unmodified Software as contributed to or provided by such licensor, or (ii)
- * the Larger Works (as defined below), to deal in both
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
  *
- * (a) the Software, and
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
  *
- * (b) any piece of software and/or hardware listed in the lrgrwrks.txt file if
- * one is included with the Software each a "Larger Work" to which the Software
- * is contributed by such licensors),
- *
- * without restriction, including without limitation the rights to copy, create
- * derivative works of, display, perform, and distribute the Software and make,
- * use, sell, offer for sale, import, export, have made, and have sold the
- * Software and the Larger Work(s), and to sublicense the foregoing rights on
- * either these or other terms.
- *
- * This license is subject to the following condition:
- *
- * The above copyright notice and either this complete permission notice or at a
- * minimum a reference to the UPL must be included in all copies or substantial
- * portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
  */
 
 package com.oracle.js.parser.ir;
@@ -45,6 +29,7 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
+import com.oracle.js.parser.Namespace;
 import com.oracle.js.parser.Source;
 import com.oracle.js.parser.Token;
 import com.oracle.js.parser.ir.visitor.NodeVisitor;
@@ -62,9 +47,9 @@ public final class FunctionNode extends LexicalContextExpression implements Flag
         NORMAL,
         /** a script function */
         SCRIPT,
-        /** a getter function */
+        /** a getter, @see UserAccessorProperty */
         GETTER,
-        /** a setter function */
+        /** a setter, @see UserAccessorProperty */
         SETTER,
         /** an arrow function */
         ARROW,
@@ -104,6 +89,9 @@ public final class FunctionNode extends LexicalContextExpression implements Flag
     /** Last token of function. **/
     private final long lastToken;
 
+    /** Method's namespace. */
+    private final Namespace namespace;
+
     /** Number of properties of "this" object assigned in this function */
     /*@Ignore*/ private final int thisProperties;
 
@@ -113,16 +101,7 @@ public final class FunctionNode extends LexicalContextExpression implements Flag
     /** Line number of function start */
     private final int lineNumber;
 
-    /** Number of formal parameters (including optional ones). */
-    private final int numOfParams;
-
-    /** The typical number of arguments expected by the function. */
-    private final int length;
-
     private final Module module;
-
-    private boolean analyzed;
-    private boolean usesAncestorScope;
 
     /** Is anonymous function flag. */
     public static final int IS_ANONYMOUS = 1 << 0;
@@ -198,6 +177,9 @@ public final class FunctionNode extends LexicalContextExpression implements Flag
     /** Does this function or any nested functions contain an eval? */
     private static final int HAS_DEEP_EVAL = HAS_EVAL | HAS_NESTED_EVAL;
 
+    /** Does this function need to store all its variables in scope? */
+    private static final int HAS_ALL_VARS_IN_SCOPE = HAS_DEEP_EVAL;
+
     /**
      * Does this function potentially need "arguments"? Note that this is not a full test, as
      * further negative check of REDEFINES_ARGS is needed.
@@ -228,11 +210,8 @@ public final class FunctionNode extends LexicalContextExpression implements Flag
     /** Is it a statement? */
     public static final int IS_STATEMENT = 1 << 24;
 
-    /** Is it an async function? */
+    /** Is it async? */
     public static final int IS_ASYNC = 1 << 25;
-
-    /** Flag indicating that this function has a non-simple parameter list. */
-    public static final int HAS_NON_SIMPLE_PARAMETER_LIST = 1 << 26;
 
     /**
      * Constructor
@@ -243,6 +222,7 @@ public final class FunctionNode extends LexicalContextExpression implements Flag
      * @param finish     finish
      * @param firstToken first token of the function node (including the function declaration)
      * @param lastToken  lastToken
+     * @param namespace  the namespace
      * @param ident      the identifier
      * @param name       the name of the function
      * @param parameters parameter list
@@ -258,28 +238,26 @@ public final class FunctionNode extends LexicalContextExpression implements Flag
         final int finish,
         final long firstToken,
         final long lastToken,
+        final Namespace namespace,
         final IdentNode ident,
         final String name,
-        final int length,
-        final int numOfParams,
         final List<IdentNode> parameters,
         final FunctionNode.Kind kind,
         final int flags,
         final Block body,
         final Object endParserState,
         final Module module) {
-        super(token, Token.descPosition(firstToken), finish);
+        super(token, finish);
 
         this.source           = source;
         this.lineNumber       = lineNumber;
         this.ident            = ident;
         this.name             = name;
         this.kind             = kind;
-        this.length           = length;
-        this.numOfParams      = numOfParams;
         this.parameters       = parameters;
         this.firstToken       = firstToken;
         this.lastToken        = lastToken;
+        this.namespace        = namespace;
         this.flags            = flags;
         this.body             = body;
         this.thisProperties   = 0;
@@ -296,10 +274,11 @@ public final class FunctionNode extends LexicalContextExpression implements Flag
         final Block body,
         final List<IdentNode> parameters,
         final int thisProperties,
-        final Source source) {
+        final Source source,
+        Namespace namespace) {
         super(functionNode);
 
-        this.endParserState   = endParserState;
+        this.endParserState    = endParserState;
         this.lineNumber       = functionNode.lineNumber;
         this.flags            = flags;
         this.name             = name;
@@ -308,13 +287,12 @@ public final class FunctionNode extends LexicalContextExpression implements Flag
         this.parameters       = parameters;
         this.thisProperties   = thisProperties;
         this.source           = source;
+        this.namespace        = namespace;
 
         // the fields below never change - they are final and assigned in constructor
         this.ident           = functionNode.ident;
         this.kind            = functionNode.kind;
         this.firstToken      = functionNode.firstToken;
-        this.length          = functionNode.length;
-        this.numOfParams     = functionNode.numOfParams;
         this.module          = functionNode.module;
     }
 
@@ -329,6 +307,25 @@ public final class FunctionNode extends LexicalContextExpression implements Flag
     @Override
     public <R> R accept(LexicalContext lc, TranslatorNodeVisitor<? extends LexicalContext, R> visitor) {
         return visitor.enterFunctionNode(this);
+    }
+
+    /**
+     * Visits the parameter nodes of this function. Parameters are normally not visited
+     * automatically.
+     *
+     * @param visitor the visitor to apply to the nodes.
+     * @return a list of parameter nodes, potentially modified from original ones by the visitor.
+     */
+    public List<IdentNode> visitParameters(final NodeVisitor<? extends LexicalContext> visitor) {
+        return Node.accept(visitor, parameters);
+    }
+
+    public List<ImportNode> visitImports(final NodeVisitor<? extends LexicalContext> visitor) {
+        return Node.accept(visitor, module.getImports());
+    }
+
+    public List<ExportNode> visitExports(final NodeVisitor<? extends LexicalContext> visitor) {
+        return Node.accept(visitor, module.getExports());
     }
 
     /**
@@ -390,10 +387,6 @@ public final class FunctionNode extends LexicalContextExpression implements Flag
             ident.toString(sb, printTypes);
         }
 
-        toStringTail(sb, printTypes);
-    }
-
-    void toStringTail(final StringBuilder sb, final boolean printTypes) {
         sb.append('(');
 
         for (final Iterator<IdentNode> iter = parameters.iterator(); iter.hasNext();) {
@@ -434,7 +427,7 @@ public final class FunctionNode extends LexicalContextExpression implements Flag
                         body,
                         parameters,
                         thisProperties,
-                        source));
+                        source, namespace));
     }
 
     @Override
@@ -460,11 +453,28 @@ public final class FunctionNode extends LexicalContextExpression implements Flag
     }
 
     /**
+     * Returns true if a function nested (directly or transitively) within this function {@link #hasEval()}.
+     *
+     * @return true if a nested function calls {@code eval}.
+     */
+    public boolean hasNestedEval() {
+        return getFlag(HAS_NESTED_EVAL);
+    }
+
+    /**
      * Get the first token for this function
      * @return the first token
      */
     public long getFirstToken() {
         return firstToken;
+    }
+
+    /**
+     * Check whether this function has nested function declarations
+     * @return true if nested function declarations exist
+     */
+    public boolean hasDeclaredFunctions() {
+        return getFlag(HAS_FUNCTION_DECLARATIONS);
     }
 
     /**
@@ -485,21 +495,10 @@ public final class FunctionNode extends LexicalContextExpression implements Flag
     }
 
     /**
-     * Get the function body, i.e., the top-most block of the function.
+     * Get the function body
      * @return the function body
      */
     public Block getBody() {
-        return body;
-    }
-
-    /**
-     * Get the {@code var} declaration block, i.e., the actual function body, which is either
-     * {@link #getBody()} or the next block after skipping the parameter initialization block.
-     */
-    public Block getVarDeclarationBlock() {
-        if (body.isParameterBlock()) {
-            return ((BlockStatement) body.getLastStatement()).getBlock();
-        }
         return body;
     }
 
@@ -528,7 +527,7 @@ public final class FunctionNode extends LexicalContextExpression implements Flag
                         body,
                         parameters,
                         thisProperties,
-                        source));
+                        source, namespace));
     }
 
     /**
@@ -567,6 +566,17 @@ public final class FunctionNode extends LexicalContextExpression implements Flag
         // uses "arguments" or calls eval, but it does not redefine "arguments", and finally, it's not a script, since
         // for top-level script, "arguments" is picked up from Context by Global.init() instead.
         return getFlag(MAYBE_NEEDS_ARGUMENTS) && !getFlag(DEFINES_ARGUMENTS) && !isProgram();
+    }
+
+    /**
+     * Returns true if this function needs access to its parent scope. Functions referencing variables outside their
+     * scope (including global variables), as well as functions that call eval or have a with block, or have nested
+     * functions that call eval or have a with block, will need a parent scope. Top-level script functions also need a
+     * parent scope since they might be used from within eval, and eval will need an externally passed scope.
+     * @return true if the function needs parent scope.
+     */
+    public boolean needsParentScope() {
+        return getFlag(NEEDS_PARENT_SCOPE);
     }
 
     /**
@@ -611,6 +621,41 @@ public final class FunctionNode extends LexicalContextExpression implements Flag
     }
 
     /**
+     * Set the internal name for this function
+     * @param lc    lexical context
+     * @param name new name
+     * @return new function node if changed, otherwise the same
+     */
+    public FunctionNode setName(final LexicalContext lc, final String name) {
+        if (this.name.equals(name)) {
+            return this;
+        }
+        return Node.replaceInLexicalContext(
+                lc,
+                this,
+                new FunctionNode(
+                        this,
+                        lastToken,
+                        endParserState,
+                        flags,
+                        name,
+                        body,
+                        parameters,
+                        thisProperties,
+                        source, namespace));
+    }
+
+    /**
+     * Check if this function should have all its variables in its own scope. Split sub-functions, and
+     * functions having with and/or eval blocks are such.
+     *
+     * @return true if all variables should be in scope
+     */
+    public boolean allVarsInScope() {
+        return getFlag(HAS_ALL_VARS_IN_SCOPE);
+    }
+
+    /**
      * Checks if this function is split into several smaller fragments.
      *
      * @return true if this function is split into several smaller fragments.
@@ -632,15 +677,17 @@ public final class FunctionNode extends LexicalContextExpression implements Flag
      * @return the number of parameters
      */
     public int getNumOfParams() {
-        return numOfParams;
+        return parameters.size();
     }
 
     /**
-     * The value of the function's length property, i.e., the typical number of arguments expected
-     * by the function.
+     * Returns the identifier for a named parameter at the specified position in this function's parameter list.
+     * @param index the parameter's position.
+     * @return the identifier for the requested named parameter.
+     * @throws IndexOutOfBoundsException if the index is invalid.
      */
-    public int getLength() {
-        return length;
+    public IdentNode getParameter(final int index) {
+        return parameters.get(index);
     }
 
     /**
@@ -661,11 +708,11 @@ public final class FunctionNode extends LexicalContextExpression implements Flag
 
     /**
      * Returns true if this is a named function expression (that is, it isn't a declared function, it isn't an
-     * anonymous function expression, it isn't a method, and it isn't a program).
+     * anonymous function expression, and it isn't a program).
      * @return true if this is a named function expression
      */
     public boolean isNamedFunctionExpression() {
-        return !getFlag(IS_PROGRAM | IS_ANONYMOUS | IS_DECLARED | IS_METHOD);
+        return !getFlag(IS_PROGRAM | IS_ANONYMOUS | IS_DECLARED);
     }
 
     /**
@@ -714,29 +761,5 @@ public final class FunctionNode extends LexicalContextExpression implements Flag
 
     public boolean isAsync() {
         return getFlag(IS_ASYNC);
-    }
-
-    public boolean hasSimpleParameterList() {
-        return !getFlag(HAS_NON_SIMPLE_PARAMETER_LIST);
-    }
-
-    public boolean isAnalyzed() {
-        return analyzed;
-    }
-
-    public void setAnalyzed(boolean analyzed) {
-        this.analyzed = analyzed;
-    }
-
-    public boolean usesAncestorScope() {
-        return usesAncestorScope;
-    }
-
-    public void setUsesAncestorScope(boolean usesAncestorScope) {
-        this.usesAncestorScope = usesAncestorScope;
-    }
-
-    boolean isFunctionDeclaration() {
-        return isDeclared() && kind == FunctionNode.Kind.NORMAL && !isAsync();
     }
 }

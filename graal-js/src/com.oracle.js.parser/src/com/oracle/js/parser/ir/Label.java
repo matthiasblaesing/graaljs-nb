@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, 2016, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2016, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -22,36 +22,35 @@
  * or visit www.oracle.com if you need additional information or have any
  * questions.
  */
-package com.oracle.js.parser;
+package com.oracle.js.parser.ir;
 
 /**
- * A ParserContextNode that represents a block that is currently being parsed
+ * Abstraction for labels.
  */
-class ParserContextBlockNode extends ParserContextBaseNode implements ParserContextBreakableNode {
-
-    private final long token;
+public final class Label {
+    /** Name of this label. */
+    private final String name;
 
     /**
-     * Constructs a ParserContextBlockNode
+     * Constructor.
      *
-     * @param token The first token of the block
+     * @param name name of this label
      */
-    ParserContextBlockNode(final long token) {
-        this.token = token;
+    public Label(final String name) {
+        this.name = name;
+    }
+
+    /**
+     * Copy constructor.
+     *
+     * @param label a label to clone
+     */
+    public Label(final Label label) {
+        this.name = label.name;
     }
 
     @Override
-    public boolean isBreakableWithoutLabel() {
-        return false;
+    public String toString() {
+        return name;
     }
-
-    /**
-     * Get token
-     *
-     * @return The first token of the block
-     */
-    public long getToken() {
-        return token;
-    }
-
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, 2016, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2016, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,59 +25,65 @@
 
 package com.oracle.js.parser.ir;
 
-import java.util.Collections;
-import java.util.List;
-
 import com.oracle.js.parser.ir.visitor.NodeVisitor;
 import com.oracle.js.parser.ir.visitor.TranslatorNodeVisitor;
 
-/**
- * IR for CoverParenthesizedExpressionAndArrowParameterList, used only during parsing.
- */
-public class ExpressionList extends Expression {
-    private final List<Expression> expressions;
+public class JsxAttributeNode extends Expression {
 
-    /**
-     * Constructor.
-     *
-     * @param token token
-     * @param finish finish
-     * @param expressions expression
-     */
-    public ExpressionList(final long token, final int finish, final List<Expression> expressions) {
+    private final String name;
+
+    private final Expression value;
+
+    public JsxAttributeNode(String name, Expression value, long token, int finish) {
         super(token, finish);
-        this.expressions = expressions;
+        this.name = name;
+        this.value = value;
     }
 
-    /**
-     * Get the list of expressions.
-     */
-    public List<Expression> getExpressions() {
-        return Collections.unmodifiableList(expressions);
+    public JsxAttributeNode(JsxAttributeNode node, String name, Expression value) {
+        super(node);
+        this.name = name;
+        this.value = value;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public Expression getValue() {
+        return value;
+    }
+
+    public JsxAttributeNode setValue(Expression value) {
+        if (this.value == value) {
+            return this;
+        }
+        return new JsxAttributeNode(this, name, value);
     }
 
     @Override
-    public Node accept(final NodeVisitor<? extends LexicalContext> visitor) {
-        throw new UnsupportedOperationException();
+    public Node accept(NodeVisitor<? extends LexicalContext> visitor) {
+        if (visitor.enterJsxAttributeNode(this)) {
+            Expression newValue = value == null ? null
+                            : (Expression) value.accept(visitor);
+            return visitor.leaveJsxAttributeNode(setValue(newValue));
+        }
+
+        return this;
     }
 
     @Override
     public <R> R accept(TranslatorNodeVisitor<? extends LexicalContext, R> visitor) {
-        throw new UnsupportedOperationException();
+        return visitor.enterJsxAttributeNode(this);
     }
 
     @Override
     public void toString(StringBuilder sb, boolean printType) {
-        sb.append("(");
-        boolean first = true;
-        for (Expression expression : expressions) {
-            if (first) {
-                first = false;
-            } else {
-                sb.append(", ");
-            }
-            expression.toString(sb, printType);
+        sb.append(name);
+        if (value != null) {
+            sb.append('=');
+            value.toString(sb, printType);
         }
-        sb.append(")");
     }
+
 }
