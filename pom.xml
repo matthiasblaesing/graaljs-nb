@@ -45,10 +45,10 @@
   </scm>
 
     <build>
-        <sourceDirectory>graal-js/src</sourceDirectory>
+        <sourceDirectory>graal-js/src/com.oracle.js.parser/src</sourceDirectory>
         <resources>
             <resource>
-                <directory>graal-js/src</directory>
+                <directory>graal-js/src/com.oracle.js.parser/src</directory>
                 <excludes>
                     <exclude>**/*.java</exclude>
                 </excludes>
