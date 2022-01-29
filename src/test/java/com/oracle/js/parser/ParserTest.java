@@ -46,8 +46,10 @@ import com.oracle.js.parser.ir.FunctionNode;
 import com.oracle.js.parser.ir.LexicalContext;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
-import static org.junit.jupiter.api.Assertions.*;
 
 public class ParserTest {
 
@@ -136,6 +138,22 @@ public class ParserTest {
                 + "    return this.#height * this.#width;"
                 + "  }\n"
                 + "}");
+    }
+
+    @Test
+    public void testNullishCoalesce() {
+        assertParses("let a = b ?? 3");
+        assertParsesNot( 10, "let a = b ?? 3");
+    }
+
+    @Test
+    public void testShortcircuritAssignment() {
+        assertParses("let a = 1; a &&= b");
+        assertParses("let a = 1; a ||= b");
+        assertParses("let a = 1; a ??= b");
+        assertParsesNot( 11, "let a = 1; a &&= b");
+        assertParsesNot( 11, "let a = 1; a ||= b");
+        assertParsesNot( 11, "let a = 1; a ??= b");
     }
 
     public void assertParses(String script) {

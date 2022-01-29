@@ -737,6 +737,9 @@ loop:
         case ASSIGN_SHL:
         case ASSIGN_SHR:
         case ASSIGN_SUB:
+        case ASSIGN_LOG_AND:
+        case ASSIGN_LOG_OR:
+        case ASSIGN_NULLISH:
             if (lhs instanceof IdentNode) {
                 if (!checkIdentLValue((IdentNode)lhs)) {
                     return referenceError(lhs, rhs, false);
