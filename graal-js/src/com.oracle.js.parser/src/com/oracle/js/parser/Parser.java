@@ -341,7 +341,7 @@ public class Parser extends AbstractParser {
     public FunctionNode parse(final String scriptName, final int startPos, final int len, final boolean allowPropertyFunction) {
         try {
             stream = new TokenStream();
-            lexer  = new Lexer(source, startPos, len, stream, scripting && env.syntaxExtensions, env.ecmascriptEdition >= 6, shebang && env.syntaxExtensions, reparsedFunction != null, env.jsx);
+            lexer  = new Lexer(source, startPos, len, stream, scripting && env.syntaxExtensions, env.ecmascriptEdition, shebang && env.syntaxExtensions, reparsedFunction != null, env.jsx);
             lexer.line = lexer.pendingLine = lineOffset + 1;
             line = lineOffset;
 
@@ -369,7 +369,7 @@ public class Parser extends AbstractParser {
     public FunctionNode parseModule(final String moduleName, final int startPos, final int len) {
         try {
             stream = new TokenStream();
-            lexer  = new Lexer(source, startPos, len, stream, scripting && env.syntaxExtensions, env.ecmascriptEdition >= 6, shebang && env.syntaxExtensions, reparsedFunction != null, env.jsx);
+            lexer  = new Lexer(source, startPos, len, stream, scripting && env.syntaxExtensions, env.ecmascriptEdition, shebang && env.syntaxExtensions, reparsedFunction != null, env.jsx);
             lexer.line = lexer.pendingLine = lineOffset + 1;
             line = lineOffset;
 
@@ -399,7 +399,7 @@ public class Parser extends AbstractParser {
     public List<IdentNode> parseFormalParameterList() {
         try {
             stream = new TokenStream();
-            lexer  = new Lexer(source, stream, scripting && env.syntaxExtensions, env.ecmascriptEdition >= 6, shebang && env.syntaxExtensions, env.jsx);
+            lexer  = new Lexer(source, stream, scripting && env.syntaxExtensions, env.ecmascriptEdition, shebang && env.syntaxExtensions, env.jsx);
 
             scanFirstToken();
 
@@ -421,7 +421,7 @@ public class Parser extends AbstractParser {
     public FunctionNode parseFunctionBody() {
         try {
             stream = new TokenStream();
-            lexer  = new Lexer(source, stream, scripting && env.syntaxExtensions, env.ecmascriptEdition >= 6, shebang && env.syntaxExtensions, env.jsx);
+            lexer  = new Lexer(source, stream, scripting && env.syntaxExtensions, env.ecmascriptEdition, shebang && env.syntaxExtensions, env.jsx);
             final int functionLine = line;
 
             scanFirstToken();
@@ -4434,7 +4434,7 @@ loop:
         }
 
         stream.reset();
-        lexer = parserState.createLexer(source, lexer, stream, scripting && env.syntaxExtensions, env.ecmascriptEdition >= 6, shebang, env.jsx);
+        lexer = parserState.createLexer(source, lexer, stream, scripting && env.syntaxExtensions, env.ecmascriptEdition, shebang, env.jsx);
         line = parserState.line;
         linePosition = parserState.linePosition;
         // Doesn't really matter, but it's safe to treat it as if there were a semicolon before
@@ -4460,8 +4460,8 @@ loop:
             this.linePosition = linePosition;
         }
 
-        Lexer createLexer(final Source source, final Lexer lexer, final TokenStream stream, final boolean scripting, final boolean es6, final boolean shebang, final boolean jsx) {
-            final Lexer newLexer = new Lexer(source, position, lexer.limit - position, stream, scripting, es6, shebang, true, jsx);
+        Lexer createLexer(final Source source, final Lexer lexer, final TokenStream stream, final boolean scripting, final int ecmascriptEdition, final boolean shebang, final boolean jsx) {
+            final Lexer newLexer = new Lexer(source, position, lexer.limit - position, stream, scripting, ecmascriptEdition, shebang, true, jsx);
             newLexer.restoreState(new Lexer.State(position, Integer.MAX_VALUE, line, -1, linePosition, SEMICOLON));
             return newLexer;
         }

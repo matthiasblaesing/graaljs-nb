@@ -43,6 +43,7 @@
 package com.oracle.js.parser;
 
 
+import com.oracle.js.parser.ir.AccessNode;
 import com.oracle.js.parser.ir.BinaryNode;
 import com.oracle.js.parser.ir.FunctionNode;
 import com.oracle.js.parser.ir.IdentNode;
@@ -76,6 +77,8 @@ class DumpingVisitor extends NodeVisitor {
             System.out.println(indent() + node.getClass().getName() + " [" + ((FunctionNode) node).getName() + ", " + (((FunctionNode) node).isAsync() ? "async" : "") + "]");
         } else if (node instanceof BinaryNode) {
             System.out.println(indent() + node.getClass().getName() + " [" + ((BinaryNode) node).tokenType() + "]");
+        } else if (node instanceof AccessNode) {
+            System.out.println(indent() + node.getClass().getName() + " [" + ((AccessNode) node).getBase() + ", " + ((AccessNode) node).getProperty() + "]");
         } else {
             System.out.println(indent() + node.getClass().getName());
         }

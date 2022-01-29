@@ -62,7 +62,83 @@ public class ParserTest {
         assertParsesNot(10, "var a = import('test');");
     }
 
-     public void assertParses(String script) {
+    @Test
+    public void testBasicClass() {
+        assertParses("class Rectangle {\n"
+                + "  constructor(height, width) {\n"
+                + "    this.name = 'Rectangle';\n"
+                + "    this.height = height;   \n"
+                + "    this.width = width; \n"
+                + "  }\n"
+                + "}\n"
+                + "\n"
+                + "class FilledRectangle extends Rectangle {\n"
+                + "  constructor(height, width, color) {\n"
+                + "    super(height, width);\n"
+                + "    this.name = 'Filled rectangle';\n"
+                + "    this.color = color;  \n"
+                + "  }\n"
+                + "}");
+    }
+
+    @Test
+    public void testGetterInClass() {
+        assertParses("const Rectangle = class {\n"
+                + "  constructor(height, width) {\n"
+                + "    this.height = height;\n"
+                + "    this.width = width;\n"
+                + "  }\n"
+                + "\n"
+                + "  get area() {\n"
+                + "    return this.calcArea();"
+                + "  }\n"
+                + "\n"
+                + "  calcArea() {\n"
+                + "    return this.height * this.width;\n"
+                + "  }\n"
+                + "}");
+    }
+
+    @Test
+    public void testStaticMembers() {
+        assertParses("class Point {\n"
+                + "  constructor(x, y) {\n"
+                + "    this.x = x;\n"
+                + "    this.y = y;\n"
+                + "  }\n"
+                + "\n"
+                + "  static displayName = \"Point\";\n"
+                + "  static distance(a, b) {\n"
+                + "    const dx = a.x - b.x;\n"
+                + "    const dy = a.y - b.y;\n"
+                + "\n"
+                + "    return Math.hypot(dx, dy);\n"
+                + "  }\n"
+                + "}");
+    }
+
+    @Test
+    public void testPrivateMember() {
+        assertParses("class T {"
+                + "#X;"
+                + "#Y() {}"
+                + "get #Z() { return 'Z';}"
+                + "}");
+        assertParses("class Rectangle {\n"
+                + "  #height = 0;\n"
+                + "  #width;\n"
+                + "  constructor(height, width) {\n"
+                + "    this.#height = height;\n"
+                + "    this.#width = width;\n"
+                + "  }\n"
+                + "\n"
+                + "  #implCalcArea() {\n"
+                + "    return this.#height * this.#width;"
+                + "  }\n"
+                + "}");
+    }
+
+    public void assertParses(String script) {
         assertParses(Integer.MAX_VALUE, false, script);
     }
 

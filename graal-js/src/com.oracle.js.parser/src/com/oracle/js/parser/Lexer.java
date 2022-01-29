@@ -96,8 +96,8 @@ public class Lexer extends Scanner {
     /** True if shebang is supported. */
     private final boolean shebang;
 
-    /** True if parsing in ECMAScript 6 mode. */
-    private final boolean es6;
+    /** ecmascript edition to support*/
+    private final int ecmascriptEdition;
 
     /** True if parsing JSX. */
     private final boolean jsx;
@@ -219,47 +219,47 @@ public class Lexer extends Scanner {
      * @param stream    the token stream to lex
      */
     public Lexer(final Source source, final TokenStream stream) {
-        this(source, stream, false, false, false, false);
+        this(source, stream, false, 5, false, false);
     }
 
     /**
      * Constructor
      *
-     * @param source    the source
-     * @param stream    the token stream to lex
-     * @param scripting are we in scripting mode
-     * @param es6       are we in ECMAScript 6 mode
-     * @param shebang   do we support shebang
+     * @param source            the source
+     * @param stream            the token stream to lex
+     * @param scripting         are we in scripting mode
+     * @param ecmascriptEdition are we in ECMAScript 6 mode
+     * @param shebang           do we support shebang
      */
-    public Lexer(final Source source, final TokenStream stream, final boolean scripting, final boolean es6, final boolean shebang, final boolean jsx) {
-        this(source, 0, source.getLength(), stream, scripting, es6, shebang, false, jsx);
+    public Lexer(final Source source, final TokenStream stream, final boolean scripting, final int ecmascriptEdition, final boolean shebang, final boolean jsx) {
+        this(source, 0, source.getLength(), stream, scripting, ecmascriptEdition, shebang, false, jsx);
     }
 
     /**
      * Constructor
      *
-     * @param source    the source
-     * @param start     start position in source from which to start lexing
-     * @param len       length of source segment to lex
-     * @param stream    token stream to lex
-     * @param scripting are we in scripting mode
-     * @param es6       are we in ECMAScript 6 mode
-     * @param shebang   do we support shebang
+     * @param source            the source
+     * @param start             start position in source from which to start lexing
+     * @param len               length of source segment to lex
+     * @param stream            token stream to lex
+     * @param scripting         are we in scripting mode
+     * @param ecmascriptEdition are we in ECMAScript 6 mode
+     * @param shebang           do we support shebang
      * @param pauseOnFunctionBody if true, lexer will return from {@link #lexify()} when it encounters a
      * function body. This is used with the feature where the parser is skipping nested function bodies to
      * avoid reading ahead unnecessarily when we skip the function bodies.
      */
-    public Lexer(final Source source, final int start, final int len, final TokenStream stream, final boolean scripting, final boolean es6, final boolean shebang, final boolean pauseOnFunctionBody, final boolean jsx) {
+    public Lexer(final Source source, final int start, final int len, final TokenStream stream, final boolean scripting, final int ecmascriptEdition, final boolean shebang, final boolean pauseOnFunctionBody, final boolean jsx) {
         super(source.getContent(), 1, start, len);
-        this.source      = source;
-        this.stream      = stream;
-        this.scripting   = scripting;
-        this.es6         = es6;
-        this.jsx         = jsx;
-        this.shebang     = shebang;
-        this.nested      = false;
-        this.pendingLine = 1;
-        this.last        = EOL;
+        this.source            = source;
+        this.stream            = stream;
+        this.scripting         = scripting;
+        this.ecmascriptEdition = ecmascriptEdition;
+        this.jsx               = jsx;
+        this.shebang           = shebang;
+        this.nested            = false;
+        this.pendingLine       = 1;
+        this.last              = EOL;
 
         this.pauseOnFunctionBody = pauseOnFunctionBody;
     }
@@ -270,7 +270,7 @@ public class Lexer extends Scanner {
         source = lexer.source;
         stream = lexer.stream;
         scripting = lexer.scripting;
-        es6 = lexer.es6;
+        ecmascriptEdition = lexer.ecmascriptEdition;
         jsx = lexer.jsx;
         shebang = lexer.shebang;
         nested = true;
@@ -871,7 +871,7 @@ public class Lexer extends Scanner {
      * @return Value of sequence or < 0 if no digits.
      */
     private int unicodeEscapeSequence(final TokenType type) {
-        if (ch0 == '{' && es6) {
+        if (ch0 == '{' && ecmascriptEdition >= 6) {
             return varlenHexSequence(type);
         } else {
             return hexSequence(4, type);
@@ -1259,7 +1259,7 @@ public class Lexer extends Scanner {
             }
 
             type = HEXADECIMAL;
-        } else if (digit == 0 && es6 && (ch1 == 'o' || ch1 == 'O') && convertDigit(ch2, 8) != -1) {
+        } else if (digit == 0 && ecmascriptEdition >= 6 && (ch1 == 'o' || ch1 == 'O') && convertDigit(ch2, 8) != -1) {
             // Skip over 0oN.
             skip(3);
             // Skip over remaining digits.
@@ -1268,7 +1268,7 @@ public class Lexer extends Scanner {
             }
 
             type = OCTAL;
-        } else if (digit == 0 && es6 && (ch1 == 'b' || ch1 == 'B') && convertDigit(ch2, 2) != -1) {
+        } else if (digit == 0 && ecmascriptEdition >= 6 && (ch1 == 'b' || ch1 == 'B') && convertDigit(ch2, 2) != -1) {
             // Skip over 0bN.
             skip(3);
             // Skip over remaining digits.
@@ -1472,9 +1472,11 @@ public class Lexer extends Scanner {
             if (!Character.isJavaIdentifierStart(ch)) {
                 error(Lexer.message("illegal.identifier.character"), TokenType.IDENT, start, position);
             }
-        } else if (!Character.isJavaIdentifierStart(ch0)) {
+        } else if ((!Character.isJavaIdentifierStart(ch0)) && (ecmascriptEdition < 13 || ch0 != '#')) {
             // Not an identifier.
             return 0;
+        } else {
+            skip(1);
         }
 
         // Make sure remaining characters are valid part characters.
@@ -2018,7 +2020,7 @@ public class Lexer extends Scanner {
                     pauseOnNextLeftBrace = false;
                     break;
                 }
-            } else if (Character.isJavaIdentifierStart(ch0) || ch0 == '\\' && ch1 == 'u') {
+            } else if (Character.isJavaIdentifierStart(ch0) || ch0 == '\\' && ch1 == 'u' || ch0 == '#') {
                 // Scan and add identifier or keyword.
                 scanIdentifierOrKeyword();
             } else if (isStringDelimiter(ch0)) {
@@ -2027,7 +2029,7 @@ public class Lexer extends Scanner {
             } else if (Character.isDigit(ch0)) {
                 // Scan and add a number.
                 scanNumber();
-            } else if (isTemplateDelimiter(ch0) && es6) {
+            } else if (isTemplateDelimiter(ch0) && ecmascriptEdition >= 6) {
                 // Scan and add template in ES6 mode.
                 //scanTemplate();
                 template = true;
