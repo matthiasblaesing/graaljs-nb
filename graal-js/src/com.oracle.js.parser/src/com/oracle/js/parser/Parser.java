@@ -2741,25 +2741,38 @@ loop:
                 final int  catchLine  = line;
                 final long catchToken = token;
                 next();
-                expect(LPAREN);
-                final IdentNode exception = getIdent();
 
-                // ECMA 12.4.1 strict mode restrictions
-                verifyIdent(exception, "catch argument");
-
-                // Nashorn extension: catch clause can have optional
-                // condition. So, a single try can have more than one
-                // catch clause each with it's own condition.
-                final Expression ifExpression;
-                if (env.syntaxExtensions && type == IF) {
-                    next();
-                    // Get the exception condition.
-                    ifExpression = expression();
-                } else {
-                    ifExpression = null;
+                if(env.ecmascriptEdition < 10) {
+                    expectDontAdvance(LPAREN);
                 }
 
-                expect(RPAREN);
+                final IdentNode exception;
+                final Expression ifExpression;
+
+                if (type == LPAREN) {
+                    next();
+
+                    exception = getIdent();
+
+                    // ECMA 12.4.1 strict mode restrictions
+                    verifyIdent(exception, "catch argument");
+
+                    // Nashorn extension: catch clause can have optional
+                    // condition. So, a single try can have more than one
+                    // catch clause each with it's own condition.
+                    if (env.syntaxExtensions && type == IF) {
+                        next();
+                        // Get the exception condition.
+                        ifExpression = expression();
+                    } else {
+                        ifExpression = null;
+                    }
+
+                    expect(RPAREN);
+                } else {
+                    exception = null;
+                    ifExpression = null;
+                }
 
                 final ParserContextBlockNode catchBlock = newBlock();
                 try {

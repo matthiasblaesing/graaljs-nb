@@ -199,6 +199,35 @@ public class ParserTest {
         assertParses(10, true, true, "export * as ns from 'mod';");
     }
 
+    @Test
+    public void testOptionalCatchBinding() {
+        assertParses("try {} catch (e) {}");
+        assertParses("try {} catch {}");
+        assertParsesNot(9, "try {} catch {}");
+    }
+
+    @Test
+    public void testFailParsingRedeclaration() {
+        assertParses(11, "var a = 1; var a = 1;");
+        assertParses(11, "var a = 1; function b() { let a = 1; }");
+        assertParses(11, "let a = 1; function b() { let a = 1; }");
+        assertParses(11, "const a = 1; function b() { let a = 1; }");
+        assertParsesNot(11, "var a = 1; let a = 1;");
+        assertParsesNot(11, "var a = 1; const a = 1;");
+        assertParsesNot(11, "let a = 1; let a = 1;");
+        assertParsesNot(11, "const a = 1; const a = 1;");
+        assertParsesNot(11, "class a {}; let a = 'test'");
+        assertParsesNot(11, "class a {}; const a = 'test'");
+        assertParsesNot(11, "function a() {}; let a = 'test'");
+        assertParsesNot(11, "function a() {}; const a = 'test'");
+    }
+
+    @Test
+    public void testTryCatchWithoutVariable() {
+        assertParses("try {} catch {}");
+        assertParsesNot(9, "try {} catch {}");
+    }
+
     public void assertParses(String script) {
         assertParses(Integer.MAX_VALUE, false, false, script);
     }
@@ -223,6 +252,7 @@ public class ParserTest {
             assertNull(fn, "Parsing should have failed");
         } else {
             assertNotNull(fn, "Parser did not yield result");
+            dumpTree(fn);
         }
     }
 

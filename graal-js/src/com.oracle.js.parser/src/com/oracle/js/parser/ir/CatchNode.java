@@ -97,7 +97,7 @@ public final class CatchNode extends Statement {
     public Node accept(final NodeVisitor<? extends LexicalContext> visitor) {
         if (visitor.enterCatchNode(this)) {
             return visitor.leaveCatchNode(
-                setException((IdentNode)exception.accept(visitor)).
+                setException(exception == null ? null : (IdentNode)exception.accept(visitor)).
                 setExceptionCondition(exceptionCondition == null ? null : (Expression)exceptionCondition.accept(visitor)).
                 setBody((Block)body.accept(visitor)));
         }
