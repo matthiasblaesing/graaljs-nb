@@ -82,7 +82,7 @@ public class Lexer extends Scanner {
     private static final long MIN_INT_L = Integer.MIN_VALUE;
     private static final long MAX_INT_L = Integer.MAX_VALUE;
 
-    private static final boolean XML_LITERALS = Options.getBooleanProperty("lexer.xmlliterals");
+    private static final boolean XML_LITERALS = false;
 
     /** Content source. */
     private final Source source;

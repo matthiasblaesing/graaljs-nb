@@ -187,24 +187,6 @@ public class Parser extends AbstractParser {
 
     private static final String ASYNC_IDENT = "async";
 
-    private static final boolean ES6_FOR_OF = Options.getBooleanProperty("parser.for.of", true);
-    private static final boolean ES6_CLASS = Options.getBooleanProperty("parser.class", true);
-    private static final boolean ES6_ARROW_FUNCTION = Options.getBooleanProperty("parser.arrow.function", true);
-    private static final boolean ES6_REST_PARAMETER = Options.getBooleanProperty("parser.rest.parameter", true);
-    private static final boolean ES6_SPREAD_ARGUMENT = Options.getBooleanProperty("parser.spread.argument", true);
-    private static final boolean ES6_GENERATOR_FUNCTION = Options.getBooleanProperty("parser.generator.function", true);
-    private static final boolean ES6_DESTRUCTURING = Options.getBooleanProperty("parser.destructuring", true);
-    private static final boolean ES6_SPREAD_ARRAY = Options.getBooleanProperty("parser.spread.array", true);
-    private static final boolean ES6_COMPUTED_PROPERTY_NAME = Options.getBooleanProperty("parser.computed.property.name", true);
-    private static final boolean ES6_DEFAULT_PARAMETER = Options.getBooleanProperty("parser.default.parameter", true);
-    private static final boolean ES6_NEW_TARGET = Options.getBooleanProperty("parser.new.target", true);
-
-    private static final boolean ES7_CLASS_FIELD = Options.getBooleanProperty("parser.class.field", true);
-    private static final boolean ES7_DECORATOR = Options.getBooleanProperty("parser.decorator", true);
-    private static final boolean ES7_ASYNC_FUNCTION = Options.getBooleanProperty("parser.async.function", true);
-    private static final boolean ES7_REST_SPREAD_PROPERTY = Options.getBooleanProperty("parser.rest.spread.property", true);
-    private static final boolean ES7_TRAILING_COMMA = Options.getBooleanProperty("parser.trailing.comma", true);
-
     /** Current env. */
     private final ScriptEnvironment env;
 
@@ -779,7 +761,7 @@ loop:
 
     private boolean isDestructuringLhs(Expression lhs) {
         if (lhs instanceof ObjectNode || lhs instanceof ArrayLiteralNode) {
-            return ES6_DESTRUCTURING && isAtLeastES6();
+            return isAtLeastES6();
         }
         return false;
     }
@@ -1147,14 +1129,14 @@ loop:
                 variableStatement(type);
                 break;
             // either it is ES6 class or it starts with @something as is ES7 decorated class
-            } else if (ES6_CLASS && isAtLeastES6() && (type == CLASS || (ES7_DECORATOR && isAtLeastES7() && type == AT))) {
+            } else if (isAtLeastES6() && (type == CLASS || (isAtLeastES7() && type == AT))) {
                 if (singleStatement) {
                     throw error(AbstractParser.message("expected.stmt", "class declaration"), token);
                 }
                 classDeclaration(false, decorators);
                 break;
             // start of async function
-            } else if (ES7_ASYNC_FUNCTION && isAtLeastES7() && type == IDENT && ASYNC_IDENT.equals((String) getValue(token))
+            } else if (isAtLeastES7() && type == IDENT && ASYNC_IDENT.equals((String) getValue(token))
                     && lookaheadIsAsyncFunction(false)) {
                 nextOrEOL();
                 functionExpression(true, topLevel || labelledStatement, true);
@@ -1316,13 +1298,13 @@ loop:
                     next();
                 }
                 boolean async = false;
-                if (ES7_ASYNC_FUNCTION && isAtLeastES7() && type == IDENT && ASYNC_IDENT.equals((String) getValue(token))
+                if (isAtLeastES7() && type == IDENT && ASYNC_IDENT.equals((String) getValue(token))
                         && lookaheadIsAsyncFunction(true)) {
                     async = true;
                     next();
                 }
                 boolean generator = false;
-                if (!async && ES6_GENERATOR_FUNCTION && type == MUL) {
+                if (!async && type == MUL && isAtLeastES6()) {
                     generator = true;
                     next();
                 }
@@ -1434,12 +1416,12 @@ loop:
         if (!computed) {
             final String name = ((PropertyKey)propertyName).getPropertyName();
             if (!generator && isIdent && type != LPAREN && name.equals("get")
-                    && (!ES7_CLASS_FIELD || !isAtLeastES7() || isPropertyName(token))) {
+                    && (!isAtLeastES7() || isPropertyName(token))) {
                 PropertyFunction methodDefinition = propertyGetterFunction(methodToken, methodLine, flags);
                 verifyAllowedMethodName(methodDefinition.key, isStatic, methodDefinition.computed, generator, async, true);
                 return new PropertyNode(methodToken, finish, methodDefinition.key, null, methodDefinition.functionNode, null, isStatic, methodDefinition.computed, decorators);
             } else if (!generator && isIdent && type != LPAREN && name.equals("set")
-                    && (!ES7_CLASS_FIELD || !isAtLeastES7() || isPropertyName(token))) {
+                    && (!isAtLeastES7() || isPropertyName(token))) {
                 PropertyFunction methodDefinition = propertySetterFunction(methodToken, methodLine, flags);
                 verifyAllowedMethodName(methodDefinition.key, isStatic, methodDefinition.computed, generator, async, true);
                 return new PropertyNode(methodToken, finish, methodDefinition.key, null, null, methodDefinition.functionNode, isStatic, methodDefinition.computed, decorators);
@@ -1457,7 +1439,7 @@ loop:
             }
         }
         // ClassFieldInitializer
-        if (ES7_CLASS_FIELD && isAtLeastES7() && type != LPAREN && !async) {
+        if (isAtLeastES7() && type != LPAREN && !async) {
             // XXX decorators on properties
             Expression assignment = null;
             if (type == ASSIGN) {
@@ -1475,7 +1457,7 @@ loop:
      * https://github.com/wycats/javascript-decorators
      */
     private List<Expression> decoratorList() {
-        if (!isAtLeastES7() || !ES7_DECORATOR || type != AT) {
+        if (!isAtLeastES7() || type != AT) {
             return Collections.emptyList();
         }
         List<Expression> decorators = new ArrayList<>();
@@ -1513,7 +1495,7 @@ loop:
 
     private boolean isPropertyName(long token) {
         TokenType currentType = Token.descType(token);
-        if (ES6_COMPUTED_PROPERTY_NAME && currentType == LBRACKET && isAtLeastES6()) {
+        if (currentType == LBRACKET && isAtLeastES6()) {
             // computed property
             return true;
         }
@@ -1814,7 +1796,7 @@ loop:
     }
 
     private Expression bindingIdentifierOrPattern(String contextString) {
-        if (isBindingIdentifier() || !(ES6_DESTRUCTURING && isAtLeastES6())) {
+        if (isBindingIdentifier() || !(isAtLeastES6())) {
             return bindingIdentifier(contextString);
         } else {
             return bindingPattern();
@@ -2116,7 +2098,7 @@ loop:
                 break;
 
             case IDENT:
-                if (ES6_FOR_OF && "of".equals(getValue())) {
+                if (isAtLeastES6() && "of".equals(getValue())) {
                     isForOf = true;
                     // fall through
                 } else {
@@ -2216,7 +2198,7 @@ loop:
             case COMMENT:
                 continue;
             case IDENT:
-                if (ofContextualKeyword && ES6_FOR_OF && "of".equals(getValue(getToken(k + i)))) {
+                if (ofContextualKeyword && isAtLeastES6() && "of".equals(getValue(getToken(k + i)))) {
                     return false;
                 }
                 // fall through
@@ -2904,13 +2886,13 @@ loop:
         case LPAREN:
             next();
 
-            if (ES6_ARROW_FUNCTION && isAtLeastES6()) {
+            if (isAtLeastES6()) {
                 if (type == RPAREN) {
                     // ()
                     nextOrEOL();
                     expectDontAdvance(ARROW);
                     return new ExpressionList(primaryToken, finish, Collections.emptyList());
-                } else if (ES6_REST_PARAMETER && type == ELLIPSIS) {
+                } else if (type == ELLIPSIS) {
                     // (...rest)
                     IdentNode restParam = formalParameterList(false, false).get(0);
                     expectDontAdvance(RPAREN);
@@ -3022,7 +3004,7 @@ loop:
                 break;
 
             case ELLIPSIS:
-                if (ES6_SPREAD_ARRAY) {
+                if (isAtLeastES6()) {
                     hasSpread = true;
                     spreadToken = token;
                     next();
@@ -3234,7 +3216,7 @@ loop:
      * @return PropertyName node
      */
     private Expression propertyName() {
-        if (ES6_COMPUTED_PROPERTY_NAME && type == LBRACKET && isAtLeastES6()) {
+        if (type == LBRACKET && isAtLeastES6()) {
             return computedPropertyName();
         } else {
             return (Expression)literalPropertyName();
@@ -3265,16 +3247,16 @@ loop:
         final boolean isIdentifier;
 
         List<Expression> decorators = decoratorList();
-        boolean method = ES7_DECORATOR && isAtLeastES7() && !decorators.isEmpty();
+        boolean method = isAtLeastES7() && !decorators.isEmpty();
 
         boolean async = false;
-        if (ES7_ASYNC_FUNCTION && isAtLeastES7() && type == IDENT && ASYNC_IDENT.equals((String) getValue(token))
+        if (isAtLeastES7() && type == IDENT && ASYNC_IDENT.equals((String) getValue(token))
                 && lookaheadIsAsyncFunction(true)) {
             async = true;
             next();
         }
         boolean generator = false;
-        if (!async && ES6_GENERATOR_FUNCTION && type == MUL && isAtLeastES6()) {
+        if (!async && type == MUL && isAtLeastES6()) {
             generator = true;
             next();
         }
@@ -3311,7 +3293,7 @@ loop:
                 identNode = identNode.setIsProtoPropertyName();
             }
             propertyName = identNode;
-        } else if (type == ELLIPSIS && ES7_REST_SPREAD_PROPERTY && isAtLeastES7()) {
+        } else if (type == ELLIPSIS && isAtLeastES7()) {
             if (method) {
                 // we do not allow decorators on spread property
                 throw error(AbstractParser.message("decorator.method.only"));
@@ -3336,7 +3318,7 @@ loop:
             propertyValue = propertyMethodFunction(propertyName, propertyToken, functionLine, generator, async, FunctionNode.IS_METHOD, computed).functionNode;
         } else if (isIdentifier && (type == COMMARIGHT || type == RBRACE || type == ASSIGN) && isAtLeastES6()) {
             propertyValue = createIdentNode(propertyToken, finish, ((IdentNode) propertyName).getPropertyName());
-            if (type == ASSIGN && ES6_DESTRUCTURING) {
+            if (type == ASSIGN && isAtLeastES6()) {
                 // TODO if not destructuring, this is a SyntaxError
                 long assignToken = token;
                 next();
@@ -3627,7 +3609,7 @@ loop:
         // NEW is tested in caller.
         next();
 
-        if (ES6_NEW_TARGET && type == PERIOD && isAtLeastES6()) {
+        if (type == PERIOD && isAtLeastES6()) {
             next();
             if (type == IDENT && "target".equals(getValue())) {
                 if (lc.getCurrentFunction().isProgram()) {
@@ -3716,7 +3698,7 @@ loop:
 
         case CLASS:
         case AT:
-            if (ES6_CLASS && isAtLeastES6() && (type == CLASS || (ES7_DECORATOR && isAtLeastES7() && type == AT))) {
+            if (isAtLeastES6() && (type == CLASS || (isAtLeastES7() && type == AT))) {
                 lhs = classExpression(false, Collections.emptyList());
                 break;
             } else {
@@ -3724,7 +3706,7 @@ loop:
             }
 
         case SUPER:
-            if (ES6_CLASS && isAtLeastES6()) {
+            if (isAtLeastES6()) {
                 ParserContextFunctionNode currentFunction = getCurrentNonArrowFunction();
                 if (currentFunction.isMethod()) {
                     long identToken = Token.recast(token, IDENT);
@@ -3756,7 +3738,7 @@ loop:
             }
 
         default:
-            if (ES7_ASYNC_FUNCTION && isAtLeastES7() && type == IDENT && ASYNC_IDENT.equals((String) getValue(token))
+            if (isAtLeastES7() && type == IDENT && ASYNC_IDENT.equals((String) getValue(token))
                     && lookaheadIsAsyncFunction(false)) {
                 nextOrEOL();
                 lhs = functionExpression(false, false, true);
@@ -3858,7 +3840,7 @@ loop:
             if (!first) {
                 expect(COMMARIGHT);
                 // if it was a trailing comma
-                if (ES7_TRAILING_COMMA && isAtLeastES7() && type == RPAREN) {
+                if (isAtLeastES7() && type == RPAREN) {
                     break;
                 }
             } else {
@@ -3866,7 +3848,7 @@ loop:
             }
 
             long spreadToken = 0;
-            if (ES6_SPREAD_ARGUMENT && type == ELLIPSIS && isAtLeastES6()) {
+            if (type == ELLIPSIS && isAtLeastES6()) {
                 spreadToken = token;
                 next();
             }
@@ -3920,7 +3902,7 @@ loop:
         next();
 
         boolean generator = false;
-        if (ES6_GENERATOR_FUNCTION && type == MUL && isAtLeastES6()) {
+        if (type == MUL && isAtLeastES6()) {
             generator = true;
             next();
         }
@@ -4167,7 +4149,7 @@ loop:
             if (!first) {
                 expect(COMMARIGHT);
                 // if it was a trailing comma
-                if (ES7_TRAILING_COMMA && isAtLeastES7() && type == endType) {
+                if (isAtLeastES7() && type == endType) {
                     break;
                 }
             } else {
@@ -4175,7 +4157,7 @@ loop:
             }
 
             boolean restParameter = false;
-            if (ES6_REST_PARAMETER && type == ELLIPSIS && isAtLeastES6()) {
+            if (type == ELLIPSIS && isAtLeastES6()) {
                 next();
                 restParameter = true;
             }
@@ -4188,7 +4170,7 @@ loop:
             final int paramLine = line;
             final String contextString = "function parameter";
             IdentNode ident;
-            if (isBindingIdentifier() || restParameter || !(ES6_DESTRUCTURING && isAtLeastES6())) {
+            if (isBindingIdentifier() || restParameter || !(isAtLeastES6())) {
                 ident = bindingIdentifier(contextString);
 
                 if (restParameter) {
@@ -4197,7 +4179,7 @@ loop:
                     expectDontAdvance(endType);
                     parameters.add(ident);
                     break;
-                } else if (type == ASSIGN && (ES6_DEFAULT_PARAMETER && isAtLeastES6())) {
+                } else if (type == ASSIGN && isAtLeastES6()) {
                     next();
                     ident = ident.setIsDefaultParameter();
 
@@ -4567,7 +4549,7 @@ loop:
             return verifyIncDecExpression(unaryToken, opType, lhs, false);
 
         default:
-            if (isAwait(token) && ES7_ASYNC_FUNCTION && inAsyncFunction() && isAtLeastES7()) {
+            if (isAwait(token) && inAsyncFunction() && isAtLeastES7()) {
                 return awaitExpression();
             }
             break;
@@ -4728,13 +4710,13 @@ loop:
         while (type == COMMARIGHT) {
             long commaToken = token;
             next();
-            if (ES7_TRAILING_COMMA && isAtLeastES7() && parenthesized && type == RPAREN) {
+            if (isAtLeastES7() && parenthesized && type == RPAREN) {
                 // allow trailing comma
                 break;
             }
 
             boolean rhsRestParameter = false;
-            if (ES6_ARROW_FUNCTION && ES6_REST_PARAMETER && type == ELLIPSIS && isAtLeastES6()) {
+            if (type == ELLIPSIS && isAtLeastES6()) {
                 // (a, b, ...rest) is not a valid expression, unless we're parsing the parameter list of an arrow function (we need to throw the right error).
                 // But since the rest parameter is always last, at least we know that the expression has to end here and be followed by RPAREN and ARROW, so peek ahead.
                 if (isRestParameterEndOfArrowFunctionParameterList()) {
@@ -4836,7 +4818,7 @@ loop:
         // This method is protected so that subclass can get details
         // at assignment expression start point!
 
-        if (type == YIELD && ES6_GENERATOR_FUNCTION && inGeneratorFunction() && isAtLeastES6()) {
+        if (type == YIELD && inGeneratorFunction() && isAtLeastES6()) {
             return yieldExpression(noIn);
         }
 
@@ -4846,7 +4828,7 @@ loop:
         Expression exprLhs = conditionalExpression(noIn);
 
         boolean asyncArrow = false;
-        if (ES7_ASYNC_FUNCTION && isAtLeastES7()) {
+        if (isAtLeastES7()) {
             // FIXME do we have a better way
             if ((exprLhs instanceof IdentNode) && ASYNC_IDENT.equals(((IdentNode) exprLhs).getName())) {
                 if (isNonStrictModeIdent() || type == IDENT) {
@@ -4874,7 +4856,7 @@ loop:
             }
         }
 
-        if (ES6_ARROW_FUNCTION && type == ARROW && isAtLeastES6()) {
+        if (type == ARROW && isAtLeastES6()) {
             if (checkNoLineTerminator()) {
                 final Expression paramListExpr;
                 if (exprLhs instanceof ExpressionList) {
@@ -5335,7 +5317,7 @@ loop:
                 decorators.clear();
                 break;
             case AT:
-                if (ES7_DECORATOR && isAtLeastES7()) {
+                if (isAtLeastES7()) {
                     decorators.addAll(decoratorList());
                     break;
                 }
@@ -5600,7 +5582,7 @@ loop:
                         declaration = true;
                         break;
                     default:
-                        if (ES7_ASYNC_FUNCTION && isAtLeastES7() && type == IDENT && ASYNC_IDENT.equals((String) getValue(token))
+                        if (isAtLeastES7() && type == IDENT && ASYNC_IDENT.equals((String) getValue(token))
                                 && lookaheadIsAsyncFunction(false)) {
                             nextOrEOL();
                             assignmentExpression = functionExpression(false, true, true);
@@ -5654,7 +5636,7 @@ loop:
                 break;
             }
             default:
-                if (ES7_ASYNC_FUNCTION && isAtLeastES7() && type == IDENT && ASYNC_IDENT.equals((String) getValue(token))
+                if (isAtLeastES7() && type == IDENT && ASYNC_IDENT.equals((String) getValue(token))
                         && lookaheadIsAsyncFunction(false)) {
                     nextOrEOL();
                     FunctionNode functionDeclaration = (FunctionNode) functionExpression(true, true, true);
