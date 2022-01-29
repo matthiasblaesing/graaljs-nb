@@ -78,7 +78,8 @@ class DumpingVisitor extends NodeVisitor {
         } else if (node instanceof BinaryNode) {
             System.out.println(indent() + node.getClass().getName() + " [" + ((BinaryNode) node).tokenType() + "]");
         } else if (node instanceof AccessNode) {
-            System.out.println(indent() + node.getClass().getName() + " [" + ((AccessNode) node).getBase() + ", " + ((AccessNode) node).getProperty() + "]");
+            AccessNode an = (AccessNode) node;
+            System.out.println(indent() + node.getClass().getName() + " [" + an.getBase() + ", " + an.getProperty() + ", " + an.isOptional() + "]");
         } else {
             System.out.println(indent() + node.getClass().getName());
         }

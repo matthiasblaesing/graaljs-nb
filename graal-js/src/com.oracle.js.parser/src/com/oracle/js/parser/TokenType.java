@@ -91,6 +91,7 @@ public enum TokenType {
     DECPREFIX      (UNARY,   "--",   16, true),
     ASSIGN_SUB     (BINARY,  "-=",    2, false),
     PERIOD         (BRACKET, ".",    18, true),
+    OPTIONAL_ACCESS(BRACKET, "?.",   18, true, 11),
     DIV            (BINARY,  "/",    13, true),
     ASSIGN_DIV     (BINARY,  "/=",    2, false),
     COLON          (BINARY,  ":"),

@@ -172,6 +172,13 @@ public class ParserTest {
         assertParsesNot(10, "let a = 1000000n");
     }
 
+    @Test
+    public void testOptionalChaining() {
+        assertParses("let a = b.c.d");
+        assertParses("let a = b?.c?.d");
+        assertParsesNot(10, "let a = b?.c?.d");
+    }
+
     public void assertParses(String script) {
         assertParses(Integer.MAX_VALUE, false, script);
     }

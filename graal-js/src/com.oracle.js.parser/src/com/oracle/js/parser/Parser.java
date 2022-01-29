@@ -74,6 +74,7 @@ import static com.oracle.js.parser.TokenType.LBRACKET;
 import static com.oracle.js.parser.TokenType.LET;
 import static com.oracle.js.parser.TokenType.LPAREN;
 import static com.oracle.js.parser.TokenType.MUL;
+import static com.oracle.js.parser.TokenType.OPTIONAL_ACCESS;
 import static com.oracle.js.parser.TokenType.PERIOD;
 import static com.oracle.js.parser.TokenType.RBRACE;
 import static com.oracle.js.parser.TokenType.RBRACKET;
@@ -3572,13 +3573,16 @@ loop:
 
                 break;
             }
+            case OPTIONAL_ACCESS:
             case PERIOD: {
+                boolean optional = type == OPTIONAL_ACCESS;
+
                 next();
 
                 final IdentNode property = getIdentifierName();
 
                 // Create property access node.
-                lhs = new AccessNode(callToken, finish, lhs, property.getName());
+                lhs = new AccessNode(callToken, finish, lhs, property.getName(), optional);
 
                 break;
             }
@@ -3779,7 +3783,10 @@ loop:
 
                 break;
             }
+            case OPTIONAL_ACCESS:
             case PERIOD: {
+                boolean optional = type == OPTIONAL_ACCESS;
+
                 if (lhs == null) {
                     throw error(AbstractParser.message("expected.operand", type.getNameOrType()));
                 }
@@ -3789,7 +3796,7 @@ loop:
                 final IdentNode property = getIdentifierName();
 
                 // Create property access node.
-                lhs = new AccessNode(callToken, finish, lhs, property.getName());
+                lhs = new AccessNode(callToken, finish, lhs, property.getName(), optional);
 
                 if (isSuper) {
                     isSuper = false;
