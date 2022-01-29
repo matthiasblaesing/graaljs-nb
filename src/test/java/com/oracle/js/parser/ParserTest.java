@@ -156,6 +156,22 @@ public class ParserTest {
         assertParsesNot( 11, "let a = 1; a ??= b");
     }
 
+    @Test
+    public void testNumericLiteralSeparator() {
+        assertParses("let a = 1000000");
+        assertParses(11, "let a = 1000000");
+        assertParses("let a = 1_000_000");
+        assertParsesNot(11, "let a = 1_000_000");
+        assertParses("let a = 1__000__000");
+        assertParsesNot(11, "let a = 1__000__000");
+    }
+
+    @Test
+    public void testBigInt() {
+        assertParses("let a = 1000000n");
+        assertParsesNot(10, "let a = 1000000n");
+    }
+
     public void assertParses(String script) {
         assertParses(Integer.MAX_VALUE, false, script);
     }
@@ -187,14 +203,13 @@ public class ParserTest {
                  source,
                  em
         );
-         FunctionNode fn = parser.parse();
-         DumpingVisitor dv = new DumpingVisitor(new LexicalContext());
-         fn.accept(dv);
+        FunctionNode fn = parser.parse();
+        DumpingVisitor dv = new DumpingVisitor(new LexicalContext());
+        fn.accept(dv);
         if (invert) {
-            assertTrue(dv == null || em.hasErrors());
+            assertTrue(fn == null || em.hasErrors(), "The parser should not have yielded a result or at least generated an error");
         } else {
-            assertNotNull(dv);
-            assertFalse(em.hasErrors());
+            assertFalse(em.hasErrors(), "Parser reported an error");
         }
      }
 }

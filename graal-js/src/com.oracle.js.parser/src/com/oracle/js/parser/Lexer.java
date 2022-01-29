@@ -42,6 +42,7 @@
 package com.oracle.js.parser;
 
 import static com.oracle.js.parser.TokenType.ADD;
+import static com.oracle.js.parser.TokenType.BIGINT;
 import static com.oracle.js.parser.TokenType.BINARY_NUMBER;
 import static com.oracle.js.parser.TokenType.COMMENT;
 import static com.oracle.js.parser.TokenType.DECIMAL;
@@ -1254,7 +1255,7 @@ public class Lexer extends Scanner {
             // Skip over 0xN.
             skip(3);
             // Skip over remaining digits.
-            while (convertDigit(ch0, 16) != -1) {
+            while (convertDigit(ch0, 16) != -1 || (ecmascriptEdition >= 12 && ch0 == '_')) {
                 skip(1);
             }
 
@@ -1272,7 +1273,7 @@ public class Lexer extends Scanner {
             // Skip over 0bN.
             skip(3);
             // Skip over remaining digits.
-            while (convertDigit(ch0, 2) != -1) {
+            while (convertDigit(ch0, 2) != -1  || (ecmascriptEdition >= 12 && ch0 == '_')) {
                 skip(1);
             }
 
@@ -1286,7 +1287,7 @@ public class Lexer extends Scanner {
             }
 
             // Skip remaining digits.
-            while ((digit = convertDigit(ch0, 10)) != -1) {
+            while ((digit = convertDigit(ch0, 10)) != -1 || (ecmascriptEdition >= 12 && ch0 == '_')) {
                 // Check octal only digits.
                 octal = octal && digit < 8;
                 // Skip digit.
@@ -1301,7 +1302,7 @@ public class Lexer extends Scanner {
                     // Skip period.
                     skip(1);
                     // Skip mantissa.
-                    while (convertDigit(ch0, 10) != -1) {
+                    while (convertDigit(ch0, 10) != -1  || (ecmascriptEdition >= 12 && ch0 == '_')) {
                         skip(1);
                     }
                 }
@@ -1315,7 +1316,7 @@ public class Lexer extends Scanner {
                         skip(1);
                     }
                     // Skip exponent.
-                    while (convertDigit(ch0, 10) != -1) {
+                    while (convertDigit(ch0, 10) != -1  || (ecmascriptEdition >= 12 && ch0 == '_')) {
                         skip(1);
                     }
                 }
@@ -1324,7 +1325,10 @@ public class Lexer extends Scanner {
             }
         }
 
-        if (Character.isJavaIdentifierStart(ch0)) {
+        if(type == DECIMAL && ch0 == 'n' && ecmascriptEdition >= 11) {
+            type = BIGINT;
+            skip(1);
+        } else if (Character.isJavaIdentifierStart(ch0)) {
             error(Lexer.message("missing.space.after.number"), type, position, 1);
         }
 
@@ -2057,17 +2061,17 @@ public class Lexer extends Scanner {
 
         switch (Token.descType(token)) {
         case DECIMAL:
-            return Lexer.valueOf(source.getString(start, len), 10); // number
+            return Lexer.valueOf(source.getString(start, len).replace("_", ""), 10); // number
         case HEXADECIMAL:
-            return Lexer.valueOf(source.getString(start + 2, len - 2), 16); // number
+            return Lexer.valueOf(source.getString(start + 2, len - 2).replace("_", ""), 16); // number
         case OCTAL_LEGACY:
-            return Lexer.valueOf(source.getString(start, len), 8); // number
+            return Lexer.valueOf(source.getString(start, len).replace("_", ""), 8); // number
         case OCTAL:
-            return Lexer.valueOf(source.getString(start + 2, len - 2), 8); // number
+            return Lexer.valueOf(source.getString(start + 2, len - 2).replace("_", ""), 8); // number
         case BINARY_NUMBER:
-            return Lexer.valueOf(source.getString(start + 2, len - 2), 2); // number
+            return Lexer.valueOf(source.getString(start + 2, len - 2).replace("_", ""), 2); // number
         case FLOATING:
-            final String str   = source.getString(start, len);
+            final String str   = source.getString(start, len).replace("_", "");
             final double value = Double.valueOf(str);
             if (str.indexOf('.') != -1) {
                 return value; //number
@@ -2084,6 +2088,8 @@ public class Lexer extends Scanner {
                 return (long)value;
             }
             return value;
+        case BIGINT:
+            return new BigInteger(source.getString(start, len - 1).replace("_", "")); // number
         case JSX_TEXT:
         case JSX_STRING:
         case STRING:

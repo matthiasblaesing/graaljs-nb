@@ -1517,6 +1517,7 @@ loop:
         case OCTAL:
         case BINARY_NUMBER:
         case FLOATING:
+        case BIGINT:
             return true;
         default:
             return isIdentifierName(token);
@@ -2870,6 +2871,7 @@ loop:
         case FLOATING:
         case REGEX:
         case XML:
+        case BIGINT:
             return getLiteral();
         case EXECSTRING:
             return execString(primaryLine, primaryToken);
@@ -3192,6 +3194,7 @@ loop:
         case OCTAL:
         case BINARY_NUMBER:
         case FLOATING:
+        case BIGINT:
             return getLiteral();
         default:
             return getIdentifierName().setIsPropertyName();
