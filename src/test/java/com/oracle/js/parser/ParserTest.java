@@ -44,12 +44,12 @@ package com.oracle.js.parser;
 
 import com.oracle.js.parser.ir.FunctionNode;
 import com.oracle.js.parser.ir.LexicalContext;
+import com.oracle.js.parser.ir.Node;
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 public class ParserTest {
 
@@ -179,21 +179,56 @@ public class ParserTest {
         assertParsesNot(10, "let a = b?.c?.d");
     }
 
+    @Test
+    public void testImportExport() {
+        assertParses(Integer.MAX_VALUE, true, false, "import v from 'mod';");
+        assertParses(Integer.MAX_VALUE, true, false, "import * as ns from 'mod';");
+        assertParses(Integer.MAX_VALUE, true, false, "import {x} from 'mod';");
+        assertParses(Integer.MAX_VALUE, true, false, "import {x as v} from 'mod';");
+        assertParses(Integer.MAX_VALUE, true, false, "import 'mod';");
+        assertParses(Integer.MAX_VALUE, true, false, "export var v;");
+        assertParses(Integer.MAX_VALUE, true, false, "export default function f(){};");
+        assertParses(Integer.MAX_VALUE, true, false, "export default function(){};");
+        assertParses(Integer.MAX_VALUE, true, false, "export default 42;");
+        assertParses(Integer.MAX_VALUE, true, false, "export {x};");
+        assertParses(Integer.MAX_VALUE, true, false, "export {x as v};");
+        assertParses(Integer.MAX_VALUE, true, false, "export {x} from 'mod';");
+        assertParses(Integer.MAX_VALUE, true, false, "export {x as v} from 'mod';");
+        assertParses(Integer.MAX_VALUE, true, false, "export * from 'mod';");
+        assertParses(Integer.MAX_VALUE, true, false, "export * as ns from 'mod';");
+        assertParses(10, true, true, "export * as ns from 'mod';");
+    }
+
     public void assertParses(String script) {
-        assertParses(Integer.MAX_VALUE, false, script);
+        assertParses(Integer.MAX_VALUE, false, false, script);
     }
 
     public void assertParses(int ecmascriptVersion, String script) {
-        assertParses(ecmascriptVersion, false, script);
+        assertParses(ecmascriptVersion, false, false, script);
     }
 
     public void assertParsesNot(int ecmascriptVersion, String script) {
-        assertParses(ecmascriptVersion, true, script);
+        assertParses(ecmascriptVersion, false, true, script);
     }
 
-    public void assertParses(int emcascriptVersion, boolean invert, String script) {
-         Source source = Source.sourceFor("dummy.js", script);
-         ScriptEnvironment.Builder builder = ScriptEnvironment.builder();
+
+    public void assertParses(int emcascriptVersion, boolean module, boolean invert, String script) {
+        FunctionNode fn = null;
+
+        try {
+            fn = parse(emcascriptVersion, module, script);
+        } catch (ParsingFailedException ex) {}
+
+        if(invert) {
+            assertNull(fn, "Parsing should have failed");
+        } else {
+            assertNotNull(fn, "Parser did not yield result");
+        }
+    }
+
+    private FunctionNode parse(int emcascriptVersion, boolean module, String script) {
+        Source source = Source.sourceFor("dummy.js", script);
+        ScriptEnvironment.Builder builder = ScriptEnvironment.builder();
         ErrorManager em = new ErrorManager.PrintWriterErrorManager() {
             @Override
             public void error(ParserException e) {
@@ -210,13 +245,24 @@ public class ParserTest {
                  source,
                  em
         );
-        FunctionNode fn = parser.parse();
+
+        FunctionNode fn;
+        if (module) {
+            fn = parser.parseModule("dummy.js");
+        } else {
+            fn = parser.parse();
+        }
+
+        if(em.hasErrors()) {
+            throw new ParsingFailedException();
+        }
+        return fn;
+    }
+
+    private void dumpTree(Node fn) {
         DumpingVisitor dv = new DumpingVisitor(new LexicalContext());
         fn.accept(dv);
-        if (invert) {
-            assertTrue(fn == null || em.hasErrors(), "The parser should not have yielded a result or at least generated an error");
-        } else {
-            assertFalse(em.hasErrors(), "Parser reported an error");
-        }
-     }
+    }
+
+    private static class ParsingFailedException extends IllegalStateException {}
 }

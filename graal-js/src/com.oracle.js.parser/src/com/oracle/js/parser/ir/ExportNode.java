@@ -54,47 +54,56 @@ public class ExportNode extends Node {
 
     private final Expression expression;
 
+    private final IdentNode exportName;
+
     private final boolean isDefault;
 
     public ExportNode(final long token, final int start, final int finish, final ExportClauseNode exportClause) {
-        this(token, start, finish, exportClause, null, null, null, false);
+        this(token, start, finish, exportClause, null, null, null, false, null);
     }
 
     public ExportNode(final long token, final int start, final int finish, final FromNode from) {
-        this(token, start, finish, null, from, null, null, false);
+        this(token, start, finish, null, from, null, null, false, null);
+    }
+
+    public ExportNode(final long token, final int start, final int finish, final FromNode from, IdentNode exportName) {
+        this(token, start, finish, null, from, null, null, false, exportName);
     }
 
     public ExportNode(final long token, final int start, final int finish, final ExportClauseNode exportClause, final FromNode from) {
-        this(token, start, finish, exportClause, from, null, null, false);
+        this(token, start, finish, exportClause, from, null, null, false, null);
     }
 
     public ExportNode(final long token, final int start, final int finish, final Expression expression, final boolean isDefault) {
-        this(token, start, finish, null, null, null, expression, isDefault);
+        this(token, start, finish, null, null, null, expression, isDefault, null);
     }
 
     public ExportNode(final long token, final int start, final int finish, final VarNode var) {
-        this(token, start, finish, null, null, var, null, false);
+        this(token, start, finish, null, null, var, null, false, null);
     }
 
     private ExportNode(final long token, final int start, final int finish, final ExportClauseNode exportClause,
-                    final FromNode from, final VarNode var, final Expression expression, final boolean isDefault) {
+                    final FromNode from, final VarNode var, final Expression expression, final boolean isDefault,
+                    final IdentNode exportName) {
         super(token, start, finish);
         this.exportClause = exportClause;
         this.from = from;
         this.var = var;
         this.expression = expression;
         this.isDefault = isDefault;
+        this.exportName = exportName;
     }
 
     private ExportNode(final ExportNode node, final ExportClauseNode exportClause,
-                    final FromNode from, final VarNode var, final Expression expression) {
+                    final FromNode from, final VarNode var, final Expression expression,
+                    final IdentNode exportName) {
         super(node);
         this.isDefault = node.isDefault;
-
         this.exportClause = exportClause;
         this.from = from;
         this.var = var;
         this.expression = expression;
+        this.exportName = exportName;
     }
 
     public ExportClauseNode getExportClause() {
@@ -117,32 +126,43 @@ public class ExportNode extends Node {
         return isDefault;
     }
 
+    public IdentNode getExportName() {
+        return exportName;
+    }
+
     public ExportNode setExportClause(ExportClauseNode exportClause) {
         if (this.exportClause == exportClause) {
             return this;
         }
-        return new ExportNode(this, exportClause, from, var, expression);
+        return new ExportNode(this, exportClause, from, var, expression, exportName);
     }
 
     public ExportNode setFrom(FromNode from) {
         if (this.from == from) {
             return this;
         }
-        return new ExportNode(this, exportClause, from, var, expression);
+        return new ExportNode(this, exportClause, from, var, expression, exportName);
     }
 
     public ExportNode setVar(VarNode var) {
         if (this.var == var) {
             return this;
         }
-        return new ExportNode(this, exportClause, from, var, expression);
+        return new ExportNode(this, exportClause, from, var, expression, exportName);
     }
 
     public ExportNode setExpression(Expression expression) {
         if (this.expression == expression) {
             return this;
         }
-        return new ExportNode(this, exportClause, from, var, expression);
+        return new ExportNode(this, exportClause, from, var, expression, exportName);
+    }
+
+    public ExportNode setExportName(IdentNode exportName) {
+        if (this.exportName == exportName) {
+            return this;
+        }
+        return new ExportNode(this, exportClause, from, var, expression, exportName);
     }
 
     @Override
@@ -150,6 +170,8 @@ public class ExportNode extends Node {
         if (visitor.enterExportNode(this)) {
             ExportClauseNode newExportClause = exportClause == null ? null
                             : (ExportClauseNode) exportClause.accept(visitor);
+            IdentNode newExportName = exportName == null ? null
+                            : (IdentNode) exportName.accept(visitor);
             FromNode newFrom = from == null ? null
                             : (FromNode) from.accept(visitor);
             VarNode newVar = var == null ? null
@@ -157,7 +179,11 @@ public class ExportNode extends Node {
             Expression newExpression = expression == null ? null
                             : (Expression) expression.accept(visitor);
             return visitor.leaveExportNode(
-                            setExportClause(newExportClause).setFrom(newFrom).setVar(newVar).setExpression(newExpression));
+                    setExportClause(newExportClause)
+                            .setFrom(newFrom)
+                            .setVar(newVar)
+                            .setExpression(newExpression)
+                            .setExportName(newExportName));
         }
 
         return this;
@@ -182,6 +208,10 @@ public class ExportNode extends Node {
         } else {
             if (exportClause == null) {
                 sb.append("* ");
+                if(exportName != null) {
+                    sb.append("as ");
+                    sb.append(exportName.getName());
+                }
             } else {
                 exportClause.toString(sb, printType);
             }

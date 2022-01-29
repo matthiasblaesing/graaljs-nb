@@ -5539,11 +5539,20 @@ loop:
         switch (type) {
             case MUL: {
                 next();
+                IdentNode exportName = null;
+                if (type == IDENT && "as".equals(getValue()) && isAtLeastES11()) {
+                    next();
+                    exportName = getIdentifierName();
+                }
                 FromNode from = fromClause();
                 String moduleRequest = from.getModuleSpecifier().getValue();
                 module.addModuleRequest(moduleRequest);
-                module.addStarExportEntry(ExportEntry.exportStarFrom(moduleRequest));
-                module.addExport(new ExportNode(exportToken, Token.descPosition(exportToken), finish, from));
+                if(exportName != null) {
+                    module.addStarExportEntry(ExportEntry.exportStarFromAs(moduleRequest, exportName.getName()));
+                } else {
+                    module.addStarExportEntry(ExportEntry.exportStarFrom(moduleRequest));
+                }
+                module.addExport(new ExportNode(exportToken, Token.descPosition(exportToken), finish, from, exportName));
                 endOfLine();
                 break;
             }

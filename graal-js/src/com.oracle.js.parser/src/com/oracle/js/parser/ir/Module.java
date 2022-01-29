@@ -71,6 +71,10 @@ public final class Module {
             return new ExportEntry(null, moduleRequest, STAR_NAME, null);
         }
 
+        public static ExportEntry exportStarFromAs(String moduleRequest, String exportName) {
+            return new ExportEntry(null, moduleRequest, STAR_NAME, exportName);
+        }
+
         public static ExportEntry exportDefault() {
             return exportDefault(DEFAULT_EXPORT_BINDING_NAME);
         }
