@@ -42,31 +42,53 @@
 
 package com.oracle.js.parser;
 
-import com.oracle.js.parser.ErrorManager.PrintWriterErrorManager;
+
+import com.oracle.js.parser.ir.BinaryNode;
 import com.oracle.js.parser.ir.FunctionNode;
+import com.oracle.js.parser.ir.IdentNode;
 import com.oracle.js.parser.ir.LexicalContext;
+import com.oracle.js.parser.ir.LiteralNode;
+import com.oracle.js.parser.ir.Node;
+import com.oracle.js.parser.ir.visitor.NodeVisitor;
 
-public class ManualTest {
+class DumpingVisitor extends NodeVisitor {
 
-    public static void main(String[] args) {
-//        Source source = Source.sourceFor("dummy.js", "function hallo() {return 'Welt';}");
-//        Source source = Source.sourceFor("dummy.js", "class hallo { constructor() {} dummy() {return 'Welt'}  #height = 0; #internal() {}}");
-//        Source source = Source.sourceFor("dummy.js", "async function hallo() {}; async function hallo2() {let a = await hallo(); return a;}");
-//        Source source = Source.sourceFor("dummy.js", "var a = {'b': 1, d, ...c}");
-//        Source source = Source.sourceFor("dummy.js", "var a = [1, 2, ...b]");
-//        Source source = Source.sourceFor("dummy.js", "var a = 1 ** 2");
-//        Source source = Source.sourceFor("dummy.js", "for await(const line of readLines(filePath)) { console.log(line); }");
-//        Source source = Source.sourceFor("dummy.js", "async function hallo() { return 'Welt';}");
-//        Source source = Source.sourceFor("dummy.js", "async (a,b) => { return 'Welt';}");
-        Source source = Source.sourceFor("dummy.js", "var a = import('test');");
-        ScriptEnvironment.Builder builder = ScriptEnvironment.builder();
-        Parser parser = new Parser(
-                builder.emptyStatements(true).ecmacriptEdition(7).jsx(true).build(),
-                source,
-                new PrintWriterErrorManager());
-        FunctionNode fn = parser.parse();
-        DumpingVisitor dv = new DumpingVisitor(new LexicalContext());
-        fn.accept(dv);
+    private static final int INDENT_PER_LEVEL = 2;
+    private int indent = 0;
+
+    public DumpingVisitor(LexicalContext lc) {
+        super(lc);
+    }
+
+    @Override
+    protected Node leaveDefault(Node node) {
+        indent -= INDENT_PER_LEVEL;
+        return super.leaveDefault(node);
+    }
+
+    @Override
+    protected boolean enterDefault(Node node) {
+        if (node instanceof IdentNode) {
+            System.out.println(indent() + node.getClass().getName() + " [" + ((IdentNode) node).getName() + "]");
+        } else if (node instanceof LiteralNode) {
+            System.out.println(indent() + node.getClass().getName() + " [" + ((LiteralNode) node).getValue() + "]");
+        } else if (node instanceof FunctionNode) {
+            System.out.println(indent() + node.getClass().getName() + " [" + ((FunctionNode) node).getName() + ", " + (((FunctionNode) node).isAsync() ? "async" : "") + "]");
+        } else if (node instanceof BinaryNode) {
+            System.out.println(indent() + node.getClass().getName() + " [" + ((BinaryNode) node).tokenType() + "]");
+        } else {
+            System.out.println(indent() + node.getClass().getName());
+        }
+        indent += INDENT_PER_LEVEL;
+        return super.enterDefault(node);
+    }
+
+    private String indent() {
+        StringBuilder sb = new StringBuilder(indent);
+        for (int i = 0; i < indent; i++) {
+            sb.append(" ");
+        }
+        return sb.toString();
     }
 
 }

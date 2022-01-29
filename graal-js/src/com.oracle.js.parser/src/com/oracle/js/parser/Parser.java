@@ -709,6 +709,10 @@ loop:
         return env.ecmascriptEdition >= 7;
     }
 
+    private boolean isAtLeastES11() {
+        return env.ecmascriptEdition >= 11;
+    }
+
     private static boolean isArguments(final String name) {
         return ARGUMENTS_NAME.equals(name);
     }
@@ -3518,6 +3522,9 @@ loop:
      * SuperCall :
      *      super Arguments
      *
+     * ImportCall :
+     *       import ( AssignmentExpression )
+     *
      * See 11.2
      *
      * Parse left hand side expression.
@@ -3538,6 +3545,14 @@ loop:
             }
 
             lhs = new CallNode(callLine, callToken, finish, lhs, arguments, false);
+        } else if (type == IMPORT && this.isAtLeastES11()) {
+            final String name2 = type.getName();
+            next();
+            IdentNode identNode = new IdentNode(token, finish, name2);
+
+            final List<Expression> arguments = optimizeList(argumentList());
+
+            lhs = new CallNode(callLine, callToken, finish, identNode, arguments, false);
         }
 
 loop:

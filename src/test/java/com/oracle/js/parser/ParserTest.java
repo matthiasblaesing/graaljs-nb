@@ -42,31 +42,65 @@
 
 package com.oracle.js.parser;
 
-import com.oracle.js.parser.ErrorManager.PrintWriterErrorManager;
 import com.oracle.js.parser.ir.FunctionNode;
 import com.oracle.js.parser.ir.LexicalContext;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
-public class ManualTest {
+public class ParserTest {
 
-    public static void main(String[] args) {
-//        Source source = Source.sourceFor("dummy.js", "function hallo() {return 'Welt';}");
-//        Source source = Source.sourceFor("dummy.js", "class hallo { constructor() {} dummy() {return 'Welt'}  #height = 0; #internal() {}}");
-//        Source source = Source.sourceFor("dummy.js", "async function hallo() {}; async function hallo2() {let a = await hallo(); return a;}");
-//        Source source = Source.sourceFor("dummy.js", "var a = {'b': 1, d, ...c}");
-//        Source source = Source.sourceFor("dummy.js", "var a = [1, 2, ...b]");
-//        Source source = Source.sourceFor("dummy.js", "var a = 1 ** 2");
-//        Source source = Source.sourceFor("dummy.js", "for await(const line of readLines(filePath)) { console.log(line); }");
-//        Source source = Source.sourceFor("dummy.js", "async function hallo() { return 'Welt';}");
-//        Source source = Source.sourceFor("dummy.js", "async (a,b) => { return 'Welt';}");
-        Source source = Source.sourceFor("dummy.js", "var a = import('test');");
-        ScriptEnvironment.Builder builder = ScriptEnvironment.builder();
-        Parser parser = new Parser(
-                builder.emptyStatements(true).ecmacriptEdition(7).jsx(true).build(),
-                source,
-                new PrintWriterErrorManager());
-        FunctionNode fn = parser.parse();
-        DumpingVisitor dv = new DumpingVisitor(new LexicalContext());
-        fn.accept(dv);
+    @Test
+    public void testParseImportFunction() {
+        assertParses("var a = import('test');");
+        assertParses("(async () => {\n"
+                + "  if (somethingIsTrue) {\n"
+                + "    const { default: myDefault, foo, bar } = await import('/modules/my-module.js');\n"
+                + "  }\n"
+                + "})();");
+        assertParsesNot(10, "var a = import('test');");
     }
 
+     public void assertParses(String script) {
+        assertParses(Integer.MAX_VALUE, false, script);
+    }
+
+    public void assertParses(int ecmascriptVersion, String script) {
+        assertParses(ecmascriptVersion, false, script);
+    }
+
+    public void assertParsesNot(int ecmascriptVersion, String script) {
+        assertParses(ecmascriptVersion, true, script);
+    }
+
+    public void assertParses(int emcascriptVersion, boolean invert, String script) {
+         Source source = Source.sourceFor("dummy.js", script);
+         ScriptEnvironment.Builder builder = ScriptEnvironment.builder();
+        ErrorManager em = new ErrorManager.PrintWriterErrorManager() {
+            @Override
+            public void error(ParserException e) {
+                StringWriter sw = new StringWriter();
+                e.printStackTrace(new PrintWriter(sw));
+                this.error(e.getMessage() + "\n\n" + sw.toString());
+            }
+        };
+         Parser parser = new Parser(
+                builder.emptyStatements(true)
+                        .ecmacriptEdition(emcascriptVersion)
+                        .jsx(true)
+                        .build(),
+                 source,
+                 em
+        );
+         FunctionNode fn = parser.parse();
+         DumpingVisitor dv = new DumpingVisitor(new LexicalContext());
+         fn.accept(dv);
+        if (invert) {
+            assertTrue(dv == null || em.hasErrors());
+        } else {
+            assertNotNull(dv);
+            assertFalse(em.hasErrors());
+        }
+     }
 }
