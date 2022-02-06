@@ -267,13 +267,13 @@ public class ParserTest {
                 this.error(e.getMessage() + "\n\n" + sw.toString());
             }
         };
-         Parser parser = new Parser(
+        Parser parser = new Parser(
                 builder.emptyStatements(true)
                         .ecmacriptEdition(emcascriptVersion)
                         .jsx(true)
                         .build(),
-                 source,
-                 em
+                source,
+                em
         );
 
         FunctionNode fn;

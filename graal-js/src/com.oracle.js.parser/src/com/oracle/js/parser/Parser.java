@@ -165,6 +165,7 @@ import com.oracle.js.parser.ir.VarNode;
 import com.oracle.js.parser.ir.WhileNode;
 import com.oracle.js.parser.ir.WithNode;
 import com.oracle.js.parser.ir.visitor.NodeVisitor;
+import java.util.Set;
 
 // @formatter:off
 /**
@@ -427,6 +428,8 @@ public class Parser extends AbstractParser {
             restoreBlock(body);
             body.setFlag(Block.NEEDS_SCOPE);
 
+            verifyBlockScopedBindings(body.getStatements());
+
             final Block functionBody = new Block(functionToken, finish, body.getFlags() | Block.IS_SYNTHETIC | Block.IS_BODY, body.getStatements());
             lc.pop(function);
 
@@ -615,6 +618,8 @@ loop:
             realFinish = finish;
         }
 
+        verifyBlockScopedBindings(newBlock.getStatements());
+
         final int flags = newBlock.getFlags() | (needsBraces ? 0 : Block.IS_SYNTHETIC);
         return new Block(blockToken, Math.max(realFinish, Token.descPosition(blockToken)), flags, newBlock.getStatements());
     }
@@ -651,6 +656,9 @@ loop:
         } finally {
             restoreBlock(newBlock);
         }
+
+        verifyBlockScopedBindings(newBlock.getStatements());
+
         return new Block(newBlock.getToken(), finish, newBlock.getFlags() | Block.IS_SYNTHETIC, newBlock.getStatements());
     }
 
@@ -876,6 +884,9 @@ loop:
 
         restoreBlock(body);
         body.setFlag(Block.NEEDS_SCOPE);
+
+        verifyBlockScopedBindings(body.getStatements());
+
         final Block programBody = new Block(functionToken, finish, body.getFlags() | Block.IS_SYNTHETIC | Block.IS_BODY, body.getStatements());
         lc.pop(script);
         script.setLastToken(token);
@@ -1383,6 +1394,8 @@ loop:
             parameters = Collections.emptyList();
         }
 
+        verifyBlockScopedBindings(statements);
+
         Block body = new Block(classToken, ctorFinish, Block.IS_BODY, statements);
         IdentNode ctorName = className != null ? className : createIdentNode(identToken, ctorFinish, "constructor");
         ParserContextFunctionNode function = createParserContextFunctionNode(ctorName, classToken, FunctionNode.Kind.NORMAL, classLineNumber, parameters);
@@ -1602,6 +1615,23 @@ loop:
 
             if (ident.isFutureStrictName()) {
                 throw error(AbstractParser.message("strict.name", ident.getName(), contextString), ident.getToken());
+            }
+        }
+    }
+
+    /**
+     * Verify, that lexical bindings are declared only once and don't collide
+     * with var declared bindings.
+     */
+    private void verifyBlockScopedBindings(final List<Statement> statements) {
+        Set<String> boundNames = new HashSet<>();
+        for(Statement s: statements) {
+            if(s instanceof VarNode) {
+                String name = ((VarNode) s).getName().getName();
+                if(((VarNode) s).isBlockScoped() && boundNames.contains(name)) {
+                    throw error(AbstractParser.message("redeclaration.of.binding", name), s.getToken());
+                }
+                boundNames.add(name);
             }
         }
     }
@@ -2167,6 +2197,7 @@ loop:
             }
             if (outer != null) {
                 restoreBlock(outer);
+                verifyBlockScopedBindings(outer.getStatements());
                 if (body != null) {
                     appendStatement(new BlockStatement(forLine, new Block(
                                     outer.getToken(),
@@ -2782,6 +2813,9 @@ loop:
                     appendStatement(catchNode);
                 } finally {
                     restoreBlock(catchBlock);
+
+                    verifyBlockScopedBindings(catchBlock.getStatements());
+
                     catchBlocks.add(new Block(catchBlock.getToken(), Math.max(finish, Token.descPosition(catchBlock.getToken())), catchBlock.getFlags() | Block.IS_SYNTHETIC, catchBlock.getStatements()));
                 }
 
@@ -2811,6 +2845,8 @@ loop:
         } finally {
             restoreBlock(outer);
         }
+
+        verifyBlockScopedBindings(outer.getStatements());
 
         appendStatement(new BlockStatement(startLine, new Block(tryToken, finish, outer.getFlags() | Block.IS_SYNTHETIC, outer.getStatements())));
     }
@@ -4074,10 +4110,13 @@ loop:
         }
     }
 
-    private static Block maybeWrapBodyInParameterBlock(Block functionBody, ParserContextBlockNode parameterBlock) {
+    private Block maybeWrapBodyInParameterBlock(Block functionBody, ParserContextBlockNode parameterBlock) {
         assert functionBody.isFunctionBody();
         if (!parameterBlock.getStatements().isEmpty()) {
             parameterBlock.appendStatement(new BlockStatement(functionBody));
+
+            verifyBlockScopedBindings(parameterBlock.getStatements());
+
             return new Block(parameterBlock.getToken(), functionBody.getFinish(), (functionBody.getFlags() | Block.IS_PARAMETER_BLOCK) & ~Block.IS_BODY, parameterBlock.getStatements());
         }
         return functionBody;
@@ -4407,6 +4446,9 @@ loop:
                 }
             }
         }
+
+        verifyBlockScopedBindings(body.getStatements());
+
         functionBody = new Block(bodyToken, bodyFinish, body.getFlags() | Block.IS_BODY, body.getStatements());
         return functionBody;
     }
@@ -5296,6 +5338,9 @@ loop:
 
             restoreBlock(body);
             body.setFlag(Block.NEEDS_SCOPE);
+
+            verifyBlockScopedBindings(body.getStatements());
+
             final Block programBody = new Block(functionToken, finish, body.getFlags() | Block.IS_SYNTHETIC | Block.IS_BODY, body.getStatements());
             lc.pop(module);
             lc.pop(script);
