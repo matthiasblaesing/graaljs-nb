@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2010, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2022, Matthias Bläsing. All rights reserved.
+ *
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * The Universal Permissive License (UPL), Version 1.0
@@ -41,39 +42,32 @@
 
 package com.oracle.js.parser;
 
-/**
- * Manages global runtime options.
- */
-final class Options {
-    private static final String OPTION_NAME_PREFIX = "truffle.js.";
+import com.oracle.js.parser.ErrorManager.PrintWriterErrorManager;
+import com.oracle.js.parser.ir.FunctionNode;
+import com.oracle.js.parser.ir.LexicalContext;
 
-    /**
-     * Convenience function for getting system properties in a safe way.
-     *
-     * @param name of boolean property
-     * @param defValue default value of boolean property
-     * @return true if set to true, default value if unset or set to false
-     */
-    public static boolean getBooleanProperty(final String name, final Boolean defValue) {
-        try {
-            final String property = System.getProperty(OPTION_NAME_PREFIX + name);
-            if (property == null && defValue != null) {
-                return defValue;
-            }
-            return property != null && !"false".equalsIgnoreCase(property);
-        } catch (final SecurityException e) {
-            // if no permission to read, assume false
-            return false;
-        }
+public class ManualTest {
+
+    public static void main(String[] args) {
+//        Source source = Source.sourceFor("dummy.js", "function hallo() {return 'Welt';}");
+//        Source source = Source.sourceFor("dummy.js", "class hallo { constructor() {} dummy() {return 'Welt'} async dummy2() {} #height = 0; #internal() {} async #internal2() {} }");
+//        Source source = Source.sourceFor("dummy.js", "async function hallo() {}; async function hallo2() {let a = await hallo(); return a;}");
+//        Source source = Source.sourceFor("dummy.js", "var a = {'b': 1, d, ...c}");
+//        Source source = Source.sourceFor("dummy.js", "var a = [1, 2, ...b]");
+//        Source source = Source.sourceFor("dummy.js", "var a = 1 ** 2");
+//        Source source = Source.sourceFor("dummy.js", "for await(const line of readLines(filePath)) { console.log(line); }");
+//        Source source = Source.sourceFor("dummy.js", "async function hallo() { return 'Welt';}");
+//        Source source = Source.sourceFor("dummy.js", "async (a,b) => { return 'Welt';}");
+//        Source source = Source.sourceFor("dummy.js", "var a = import('test');");
+        Source source = Source.sourceFor("dummy.js", "try {} catch (e) {}");
+        ScriptEnvironment.Builder builder = ScriptEnvironment.builder();
+        Parser parser = new Parser(
+                builder.emptyStatements(true).ecmacriptEdition(13).jsx(true).build(),
+                source,
+                new PrintWriterErrorManager());
+        FunctionNode fn = parser.parse();
+        DumpingVisitor dv = new DumpingVisitor(new LexicalContext());
+        fn.accept(dv);
     }
 
-    /**
-     * Convenience function for getting system properties in a safe way.
-     *
-     * @param name of boolean property
-     * @return true if set to true, false if unset or set to false
-     */
-    public static boolean getBooleanProperty(final String name) {
-        return getBooleanProperty(name, null);
-    }
 }

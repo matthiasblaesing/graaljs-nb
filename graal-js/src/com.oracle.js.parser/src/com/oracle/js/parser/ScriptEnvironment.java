@@ -65,11 +65,8 @@ public final class ScriptEnvironment {
     /** Empty statements should be preserved in the AST */
     final boolean emptyStatements;
 
-    /** Enable ECMAScript 6 features. */
-    final boolean es6;
-
-    /** Enable ECMAScript 7 features. */
-    final boolean es7;
+    /** ecmascriptEdition to support */
+    final int ecmascriptEdition;
 
     /** Enable JSX extension. */
     final boolean jsx;
@@ -115,8 +112,13 @@ public final class ScriptEnvironment {
 
     final boolean functionDeclarationHoisting;
 
-    private ScriptEnvironment(boolean strict, boolean es6, boolean es7, boolean jsx, boolean earlyLvalueError, boolean emptyStatements, boolean syntaxExtensions, boolean scripting, boolean shebang, boolean constAsVar,
-                    boolean functionDeclarationHoisting, FunctionStatementBehavior functionStatementBehavior, PrintWriter dumpOnError) {
+    private ScriptEnvironment(
+            boolean strict, int ecmascriptEdition, boolean jsx,
+            boolean earlyLvalueError, boolean emptyStatements,
+            boolean syntaxExtensions, boolean scripting, boolean shebang,
+            boolean constAsVar, boolean functionDeclarationHoisting,
+            FunctionStatementBehavior functionStatementBehavior,
+            PrintWriter dumpOnError) {
         this.namespace = new Namespace();
         this.err = dumpOnError;
 
@@ -129,8 +131,7 @@ public final class ScriptEnvironment {
         this.strict = strict;
         this.scripting = scripting;
         this.shebang = shebang;
-        this.es6 = es6;
-        this.es7 = es7;
+        this.ecmascriptEdition = ecmascriptEdition;
         this.jsx = jsx;
         this.functionDeclarationHoisting = functionDeclarationHoisting;
     }
@@ -166,8 +167,7 @@ public final class ScriptEnvironment {
         private boolean constAsVar;
         private boolean earlyLvalueError = true;
         private boolean emptyStatements;
-        private boolean es6 = true;
-        private boolean es7 = false;
+        private int ecmacriptEdition = 6;
         private boolean jsx = false;
         private boolean syntaxExtensions = true;
         private boolean scripting;
@@ -195,13 +195,8 @@ public final class ScriptEnvironment {
             return this;
         }
 
-        public Builder es6(boolean es6) {
-            this.es6 = es6;
-            return this;
-        }
-
-        public Builder es7(boolean es7) {
-            this.es7 = es7;
+        public Builder ecmacriptEdition(int ecmacriptEdition) {
+            this.ecmacriptEdition = ecmacriptEdition;
             return this;
         }
 
@@ -246,8 +241,10 @@ public final class ScriptEnvironment {
         }
 
         public ScriptEnvironment build() {
-            return new ScriptEnvironment(strict, es6, es7, jsx, earlyLvalueError, emptyStatements, syntaxExtensions, scripting, shebang, constAsVar,
-                            functionDeclarationHoisting, functionStatementBehavior, dumpOnError);
+            return new ScriptEnvironment(strict, ecmacriptEdition, jsx,
+                    earlyLvalueError, emptyStatements, syntaxExtensions,
+                    scripting, shebang, constAsVar, functionDeclarationHoisting,
+                    functionStatementBehavior, dumpOnError);
         }
     }
 }

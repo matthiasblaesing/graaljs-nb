@@ -42,6 +42,7 @@
 package com.oracle.js.parser;
 
 import static com.oracle.js.parser.TokenType.ADD;
+import static com.oracle.js.parser.TokenType.BIGINT;
 import static com.oracle.js.parser.TokenType.BINARY_NUMBER;
 import static com.oracle.js.parser.TokenType.COMMENT;
 import static com.oracle.js.parser.TokenType.DECIMAL;
@@ -82,7 +83,7 @@ public class Lexer extends Scanner {
     private static final long MIN_INT_L = Integer.MIN_VALUE;
     private static final long MAX_INT_L = Integer.MAX_VALUE;
 
-    private static final boolean XML_LITERALS = Options.getBooleanProperty("lexer.xmlliterals");
+    private static final boolean XML_LITERALS = false;
 
     /** Content source. */
     private final Source source;
@@ -96,8 +97,8 @@ public class Lexer extends Scanner {
     /** True if shebang is supported. */
     private final boolean shebang;
 
-    /** True if parsing in ECMAScript 6 mode. */
-    private final boolean es6;
+    /** ecmascript edition to support*/
+    private final int ecmascriptEdition;
 
     /** True if parsing JSX. */
     private final boolean jsx;
@@ -219,47 +220,47 @@ public class Lexer extends Scanner {
      * @param stream    the token stream to lex
      */
     public Lexer(final Source source, final TokenStream stream) {
-        this(source, stream, false, false, false, false);
+        this(source, stream, false, 5, false, false);
     }
 
     /**
      * Constructor
      *
-     * @param source    the source
-     * @param stream    the token stream to lex
-     * @param scripting are we in scripting mode
-     * @param es6       are we in ECMAScript 6 mode
-     * @param shebang   do we support shebang
+     * @param source            the source
+     * @param stream            the token stream to lex
+     * @param scripting         are we in scripting mode
+     * @param ecmascriptEdition are we in ECMAScript 6 mode
+     * @param shebang           do we support shebang
      */
-    public Lexer(final Source source, final TokenStream stream, final boolean scripting, final boolean es6, final boolean shebang, final boolean jsx) {
-        this(source, 0, source.getLength(), stream, scripting, es6, shebang, false, jsx);
+    public Lexer(final Source source, final TokenStream stream, final boolean scripting, final int ecmascriptEdition, final boolean shebang, final boolean jsx) {
+        this(source, 0, source.getLength(), stream, scripting, ecmascriptEdition, shebang, false, jsx);
     }
 
     /**
      * Constructor
      *
-     * @param source    the source
-     * @param start     start position in source from which to start lexing
-     * @param len       length of source segment to lex
-     * @param stream    token stream to lex
-     * @param scripting are we in scripting mode
-     * @param es6       are we in ECMAScript 6 mode
-     * @param shebang   do we support shebang
+     * @param source            the source
+     * @param start             start position in source from which to start lexing
+     * @param len               length of source segment to lex
+     * @param stream            token stream to lex
+     * @param scripting         are we in scripting mode
+     * @param ecmascriptEdition are we in ECMAScript 6 mode
+     * @param shebang           do we support shebang
      * @param pauseOnFunctionBody if true, lexer will return from {@link #lexify()} when it encounters a
      * function body. This is used with the feature where the parser is skipping nested function bodies to
      * avoid reading ahead unnecessarily when we skip the function bodies.
      */
-    public Lexer(final Source source, final int start, final int len, final TokenStream stream, final boolean scripting, final boolean es6, final boolean shebang, final boolean pauseOnFunctionBody, final boolean jsx) {
+    public Lexer(final Source source, final int start, final int len, final TokenStream stream, final boolean scripting, final int ecmascriptEdition, final boolean shebang, final boolean pauseOnFunctionBody, final boolean jsx) {
         super(source.getContent(), 1, start, len);
-        this.source      = source;
-        this.stream      = stream;
-        this.scripting   = scripting;
-        this.es6         = es6;
-        this.jsx         = jsx;
-        this.shebang     = shebang;
-        this.nested      = false;
-        this.pendingLine = 1;
-        this.last        = EOL;
+        this.source            = source;
+        this.stream            = stream;
+        this.scripting         = scripting;
+        this.ecmascriptEdition = ecmascriptEdition;
+        this.jsx               = jsx;
+        this.shebang           = shebang;
+        this.nested            = false;
+        this.pendingLine       = 1;
+        this.last              = EOL;
 
         this.pauseOnFunctionBody = pauseOnFunctionBody;
     }
@@ -270,7 +271,7 @@ public class Lexer extends Scanner {
         source = lexer.source;
         stream = lexer.stream;
         scripting = lexer.scripting;
-        es6 = lexer.es6;
+        ecmascriptEdition = lexer.ecmascriptEdition;
         jsx = lexer.jsx;
         shebang = lexer.shebang;
         nested = true;
@@ -871,7 +872,7 @@ public class Lexer extends Scanner {
      * @return Value of sequence or < 0 if no digits.
      */
     private int unicodeEscapeSequence(final TokenType type) {
-        if (ch0 == '{' && es6) {
+        if (ch0 == '{' && ecmascriptEdition >= 6) {
             return varlenHexSequence(type);
         } else {
             return hexSequence(4, type);
@@ -1254,12 +1255,12 @@ public class Lexer extends Scanner {
             // Skip over 0xN.
             skip(3);
             // Skip over remaining digits.
-            while (convertDigit(ch0, 16) != -1) {
+            while (convertDigit(ch0, 16) != -1 || (ecmascriptEdition >= 12 && ch0 == '_')) {
                 skip(1);
             }
 
             type = HEXADECIMAL;
-        } else if (digit == 0 && es6 && (ch1 == 'o' || ch1 == 'O') && convertDigit(ch2, 8) != -1) {
+        } else if (digit == 0 && ecmascriptEdition >= 6 && (ch1 == 'o' || ch1 == 'O') && convertDigit(ch2, 8) != -1) {
             // Skip over 0oN.
             skip(3);
             // Skip over remaining digits.
@@ -1268,11 +1269,11 @@ public class Lexer extends Scanner {
             }
 
             type = OCTAL;
-        } else if (digit == 0 && es6 && (ch1 == 'b' || ch1 == 'B') && convertDigit(ch2, 2) != -1) {
+        } else if (digit == 0 && ecmascriptEdition >= 6 && (ch1 == 'b' || ch1 == 'B') && convertDigit(ch2, 2) != -1) {
             // Skip over 0bN.
             skip(3);
             // Skip over remaining digits.
-            while (convertDigit(ch0, 2) != -1) {
+            while (convertDigit(ch0, 2) != -1  || (ecmascriptEdition >= 12 && ch0 == '_')) {
                 skip(1);
             }
 
@@ -1286,7 +1287,7 @@ public class Lexer extends Scanner {
             }
 
             // Skip remaining digits.
-            while ((digit = convertDigit(ch0, 10)) != -1) {
+            while ((digit = convertDigit(ch0, 10)) != -1 || (ecmascriptEdition >= 12 && ch0 == '_')) {
                 // Check octal only digits.
                 octal = octal && digit < 8;
                 // Skip digit.
@@ -1301,7 +1302,7 @@ public class Lexer extends Scanner {
                     // Skip period.
                     skip(1);
                     // Skip mantissa.
-                    while (convertDigit(ch0, 10) != -1) {
+                    while (convertDigit(ch0, 10) != -1  || (ecmascriptEdition >= 12 && ch0 == '_')) {
                         skip(1);
                     }
                 }
@@ -1315,7 +1316,7 @@ public class Lexer extends Scanner {
                         skip(1);
                     }
                     // Skip exponent.
-                    while (convertDigit(ch0, 10) != -1) {
+                    while (convertDigit(ch0, 10) != -1  || (ecmascriptEdition >= 12 && ch0 == '_')) {
                         skip(1);
                     }
                 }
@@ -1324,7 +1325,10 @@ public class Lexer extends Scanner {
             }
         }
 
-        if (Character.isJavaIdentifierStart(ch0)) {
+        if(type == DECIMAL && ch0 == 'n' && ecmascriptEdition >= 11) {
+            type = BIGINT;
+            skip(1);
+        } else if (Character.isJavaIdentifierStart(ch0)) {
             error(Lexer.message("missing.space.after.number"), type, position, 1);
         }
 
@@ -1472,9 +1476,11 @@ public class Lexer extends Scanner {
             if (!Character.isJavaIdentifierStart(ch)) {
                 error(Lexer.message("illegal.identifier.character"), TokenType.IDENT, start, position);
             }
-        } else if (!Character.isJavaIdentifierStart(ch0)) {
+        } else if ((!Character.isJavaIdentifierStart(ch0)) && (ecmascriptEdition < 13 || ch0 != '#')) {
             // Not an identifier.
             return 0;
+        } else {
+            skip(1);
         }
 
         // Make sure remaining characters are valid part characters.
@@ -1986,7 +1992,7 @@ public class Lexer extends Scanner {
                 // '.' followed by digit.
                 // Scan and add a number.
                 scanNumber();
-            } else if ((type = TokenLookup.lookupOperator(ch0, ch1, ch2, ch3)) != null) {
+            } else if ((type = TokenLookup.lookupOperator(ch0, ch1, ch2, ch3)) != null && type.isSupported(ecmascriptEdition)) {
                 if (!innerStates.isEmpty()) {
                     if (type == LBRACE) {
                         openExpressionBraces++;
@@ -2018,7 +2024,7 @@ public class Lexer extends Scanner {
                     pauseOnNextLeftBrace = false;
                     break;
                 }
-            } else if (Character.isJavaIdentifierStart(ch0) || ch0 == '\\' && ch1 == 'u') {
+            } else if (Character.isJavaIdentifierStart(ch0) || ch0 == '\\' && ch1 == 'u' || ch0 == '#') {
                 // Scan and add identifier or keyword.
                 scanIdentifierOrKeyword();
             } else if (isStringDelimiter(ch0)) {
@@ -2027,7 +2033,7 @@ public class Lexer extends Scanner {
             } else if (Character.isDigit(ch0)) {
                 // Scan and add a number.
                 scanNumber();
-            } else if (isTemplateDelimiter(ch0) && es6) {
+            } else if (isTemplateDelimiter(ch0) && ecmascriptEdition >= 6) {
                 // Scan and add template in ES6 mode.
                 //scanTemplate();
                 template = true;
@@ -2055,17 +2061,17 @@ public class Lexer extends Scanner {
 
         switch (Token.descType(token)) {
         case DECIMAL:
-            return Lexer.valueOf(source.getString(start, len), 10); // number
+            return Lexer.valueOf(source.getString(start, len).replace("_", ""), 10); // number
         case HEXADECIMAL:
-            return Lexer.valueOf(source.getString(start + 2, len - 2), 16); // number
+            return Lexer.valueOf(source.getString(start + 2, len - 2).replace("_", ""), 16); // number
         case OCTAL_LEGACY:
-            return Lexer.valueOf(source.getString(start, len), 8); // number
+            return Lexer.valueOf(source.getString(start, len).replace("_", ""), 8); // number
         case OCTAL:
-            return Lexer.valueOf(source.getString(start + 2, len - 2), 8); // number
+            return Lexer.valueOf(source.getString(start + 2, len - 2).replace("_", ""), 8); // number
         case BINARY_NUMBER:
-            return Lexer.valueOf(source.getString(start + 2, len - 2), 2); // number
+            return Lexer.valueOf(source.getString(start + 2, len - 2).replace("_", ""), 2); // number
         case FLOATING:
-            final String str   = source.getString(start, len);
+            final String str   = source.getString(start, len).replace("_", "");
             final double value = Double.valueOf(str);
             if (str.indexOf('.') != -1) {
                 return value; //number
@@ -2082,6 +2088,8 @@ public class Lexer extends Scanner {
                 return (long)value;
             }
             return value;
+        case BIGINT:
+            return new BigInteger(source.getString(start, len - 1).replace("_", "")); // number
         case JSX_TEXT:
         case JSX_STRING:
         case STRING:

@@ -66,8 +66,6 @@ public final class IdentNode extends Expression implements PropertyKey, Function
 
     private final int flags;
 
-    private Symbol symbol;
-
     /**
      * Constructor
      *
@@ -85,7 +83,6 @@ public final class IdentNode extends Expression implements PropertyKey, Function
         super(identNode);
         this.name = name;
         this.flags = flags;
-        this.symbol = identNode.symbol;
     }
 
     /**
@@ -123,16 +120,6 @@ public final class IdentNode extends Expression implements PropertyKey, Function
     @Override
     public String getPropertyName() {
         return getName();
-    }
-
-    /**
-     * Return the Symbol the compiler has assigned to this identifier. The symbol is a description of the storage
-     * location for the identifier.
-     *
-     * @return the symbol
-     */
-    public Symbol getSymbol() {
-        return symbol;
     }
 
     /**
@@ -275,5 +262,9 @@ public final class IdentNode extends Expression implements PropertyKey, Function
 
     public IdentNode setIsDestructuredParameter() {
         return new IdentNode(this, name, flags | DESTRUCTURED_PARAMETER);
+    }
+
+    public boolean isPrivate() {
+        return name != null && name.startsWith("#");
     }
 }

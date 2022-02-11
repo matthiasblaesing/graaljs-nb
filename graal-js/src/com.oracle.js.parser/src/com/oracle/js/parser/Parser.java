@@ -74,6 +74,7 @@ import static com.oracle.js.parser.TokenType.LBRACKET;
 import static com.oracle.js.parser.TokenType.LET;
 import static com.oracle.js.parser.TokenType.LPAREN;
 import static com.oracle.js.parser.TokenType.MUL;
+import static com.oracle.js.parser.TokenType.OPTIONAL_ACCESS;
 import static com.oracle.js.parser.TokenType.PERIOD;
 import static com.oracle.js.parser.TokenType.RBRACE;
 import static com.oracle.js.parser.TokenType.RBRACKET;
@@ -164,6 +165,7 @@ import com.oracle.js.parser.ir.VarNode;
 import com.oracle.js.parser.ir.WhileNode;
 import com.oracle.js.parser.ir.WithNode;
 import com.oracle.js.parser.ir.visitor.NodeVisitor;
+import java.util.Set;
 
 // @formatter:off
 /**
@@ -186,24 +188,6 @@ public class Parser extends AbstractParser {
     private static final char NESTED_FUNCTION_SEPARATOR = '#';
 
     private static final String ASYNC_IDENT = "async";
-
-    private static final boolean ES6_FOR_OF = Options.getBooleanProperty("parser.for.of", true);
-    private static final boolean ES6_CLASS = Options.getBooleanProperty("parser.class", true);
-    private static final boolean ES6_ARROW_FUNCTION = Options.getBooleanProperty("parser.arrow.function", true);
-    private static final boolean ES6_REST_PARAMETER = Options.getBooleanProperty("parser.rest.parameter", true);
-    private static final boolean ES6_SPREAD_ARGUMENT = Options.getBooleanProperty("parser.spread.argument", true);
-    private static final boolean ES6_GENERATOR_FUNCTION = Options.getBooleanProperty("parser.generator.function", true);
-    private static final boolean ES6_DESTRUCTURING = Options.getBooleanProperty("parser.destructuring", true);
-    private static final boolean ES6_SPREAD_ARRAY = Options.getBooleanProperty("parser.spread.array", true);
-    private static final boolean ES6_COMPUTED_PROPERTY_NAME = Options.getBooleanProperty("parser.computed.property.name", true);
-    private static final boolean ES6_DEFAULT_PARAMETER = Options.getBooleanProperty("parser.default.parameter", true);
-    private static final boolean ES6_NEW_TARGET = Options.getBooleanProperty("parser.new.target", true);
-
-    private static final boolean ES7_CLASS_FIELD = Options.getBooleanProperty("parser.class.field", true);
-    private static final boolean ES7_DECORATOR = Options.getBooleanProperty("parser.decorator", true);
-    private static final boolean ES7_ASYNC_FUNCTION = Options.getBooleanProperty("parser.async.function", true);
-    private static final boolean ES7_REST_SPREAD_PROPERTY = Options.getBooleanProperty("parser.rest.spread.property", true);
-    private static final boolean ES7_TRAILING_COMMA = Options.getBooleanProperty("parser.trailing.comma", true);
 
     /** Current env. */
     private final ScriptEnvironment env;
@@ -341,7 +325,7 @@ public class Parser extends AbstractParser {
     public FunctionNode parse(final String scriptName, final int startPos, final int len, final boolean allowPropertyFunction) {
         try {
             stream = new TokenStream();
-            lexer  = new Lexer(source, startPos, len, stream, scripting && env.syntaxExtensions, env.es6, shebang && env.syntaxExtensions, reparsedFunction != null, env.jsx);
+            lexer  = new Lexer(source, startPos, len, stream, scripting && env.syntaxExtensions, env.ecmascriptEdition, shebang && env.syntaxExtensions, reparsedFunction != null, env.jsx);
             lexer.line = lexer.pendingLine = lineOffset + 1;
             line = lineOffset;
 
@@ -369,7 +353,7 @@ public class Parser extends AbstractParser {
     public FunctionNode parseModule(final String moduleName, final int startPos, final int len) {
         try {
             stream = new TokenStream();
-            lexer  = new Lexer(source, startPos, len, stream, scripting && env.syntaxExtensions, env.es6, shebang && env.syntaxExtensions, reparsedFunction != null, env.jsx);
+            lexer  = new Lexer(source, startPos, len, stream, scripting && env.syntaxExtensions, env.ecmascriptEdition, shebang && env.syntaxExtensions, reparsedFunction != null, env.jsx);
             lexer.line = lexer.pendingLine = lineOffset + 1;
             line = lineOffset;
 
@@ -399,7 +383,7 @@ public class Parser extends AbstractParser {
     public List<IdentNode> parseFormalParameterList() {
         try {
             stream = new TokenStream();
-            lexer  = new Lexer(source, stream, scripting && env.syntaxExtensions, env.es6, shebang && env.syntaxExtensions, env.jsx);
+            lexer  = new Lexer(source, stream, scripting && env.syntaxExtensions, env.ecmascriptEdition, shebang && env.syntaxExtensions, env.jsx);
 
             scanFirstToken();
 
@@ -421,7 +405,7 @@ public class Parser extends AbstractParser {
     public FunctionNode parseFunctionBody() {
         try {
             stream = new TokenStream();
-            lexer  = new Lexer(source, stream, scripting && env.syntaxExtensions, env.es6, shebang && env.syntaxExtensions, env.jsx);
+            lexer  = new Lexer(source, stream, scripting && env.syntaxExtensions, env.ecmascriptEdition, shebang && env.syntaxExtensions, env.jsx);
             final int functionLine = line;
 
             scanFirstToken();
@@ -443,6 +427,8 @@ public class Parser extends AbstractParser {
 
             restoreBlock(body);
             body.setFlag(Block.NEEDS_SCOPE);
+
+            verifyBlockScopedBindings(body.getStatements());
 
             final Block functionBody = new Block(functionToken, finish, body.getFlags() | Block.IS_SYNTHETIC | Block.IS_BODY, body.getStatements());
             lc.pop(function);
@@ -632,6 +618,8 @@ loop:
             realFinish = finish;
         }
 
+        verifyBlockScopedBindings(newBlock.getStatements());
+
         final int flags = newBlock.getFlags() | (needsBraces ? 0 : Block.IS_SYNTHETIC);
         return new Block(blockToken, Math.max(realFinish, Token.descPosition(blockToken)), flags, newBlock.getStatements());
     }
@@ -668,6 +656,9 @@ loop:
         } finally {
             restoreBlock(newBlock);
         }
+
+        verifyBlockScopedBindings(newBlock.getStatements());
+
         return new Block(newBlock.getToken(), finish, newBlock.getFlags() | Block.IS_SYNTHETIC, newBlock.getStatements());
     }
 
@@ -698,15 +689,19 @@ loop:
     }
 
     private boolean useBlockScope() {
-        return env.es6;
+        return env.ecmascriptEdition >= 6;
     }
 
-    private boolean isES6() {
-        return env.es6;
+    private boolean isAtLeastES6() {
+        return env.ecmascriptEdition >= 6;
     }
 
-    private boolean isES7() {
-        return env.es7;
+    private boolean isAtLeastES7() {
+        return env.ecmascriptEdition >= 7;
+    }
+
+    private boolean isAtLeastES11() {
+        return env.ecmascriptEdition >= 11;
     }
 
     private static boolean isArguments(final String name) {
@@ -751,6 +746,9 @@ loop:
         case ASSIGN_SHL:
         case ASSIGN_SHR:
         case ASSIGN_SUB:
+        case ASSIGN_LOG_AND:
+        case ASSIGN_LOG_OR:
+        case ASSIGN_NULLISH:
             if (lhs instanceof IdentNode) {
                 if (!checkIdentLValue((IdentNode)lhs)) {
                     return referenceError(lhs, rhs, false);
@@ -775,7 +773,7 @@ loop:
 
     private boolean isDestructuringLhs(Expression lhs) {
         if (lhs instanceof ObjectNode || lhs instanceof ArrayLiteralNode) {
-            return ES6_DESTRUCTURING && isES6();
+            return isAtLeastES6();
         }
         return false;
     }
@@ -886,6 +884,9 @@ loop:
 
         restoreBlock(body);
         body.setFlag(Block.NEEDS_SCOPE);
+
+        verifyBlockScopedBindings(body.getStatements());
+
         final Block programBody = new Block(functionToken, finish, body.getFlags() | Block.IS_SYNTHETIC | Block.IS_BODY, body.getStatements());
         lc.pop(script);
         script.setLastToken(token);
@@ -1143,14 +1144,14 @@ loop:
                 variableStatement(type);
                 break;
             // either it is ES6 class or it starts with @something as is ES7 decorated class
-            } else if (ES6_CLASS && isES6() && (type == CLASS || (ES7_DECORATOR && isES7() && type == AT))) {
+            } else if (isAtLeastES6() && (type == CLASS || (isAtLeastES7() && type == AT))) {
                 if (singleStatement) {
                     throw error(AbstractParser.message("expected.stmt", "class declaration"), token);
                 }
                 classDeclaration(false, decorators);
                 break;
             // start of async function
-            } else if (ES7_ASYNC_FUNCTION && isES7() && type == IDENT && ASYNC_IDENT.equals((String) getValue(token))
+            } else if (isAtLeastES7() && type == IDENT && ASYNC_IDENT.equals((String) getValue(token))
                     && lookaheadIsAsyncFunction(false)) {
                 nextOrEOL();
                 functionExpression(true, topLevel || labelledStatement, true);
@@ -1312,13 +1313,13 @@ loop:
                     next();
                 }
                 boolean async = false;
-                if (ES7_ASYNC_FUNCTION && isES7() && type == IDENT && ASYNC_IDENT.equals((String) getValue(token))
+                if (isAtLeastES7() && type == IDENT && ASYNC_IDENT.equals((String) getValue(token))
                         && lookaheadIsAsyncFunction(true)) {
                     async = true;
                     next();
                 }
                 boolean generator = false;
-                if (!async && ES6_GENERATOR_FUNCTION && type == MUL) {
+                if (!async && type == MUL && isAtLeastES6()) {
                     generator = true;
                     next();
                 }
@@ -1393,6 +1394,8 @@ loop:
             parameters = Collections.emptyList();
         }
 
+        verifyBlockScopedBindings(statements);
+
         Block body = new Block(classToken, ctorFinish, Block.IS_BODY, statements);
         IdentNode ctorName = className != null ? className : createIdentNode(identToken, ctorFinish, "constructor");
         ParserContextFunctionNode function = createParserContextFunctionNode(ctorName, classToken, FunctionNode.Kind.NORMAL, classLineNumber, parameters);
@@ -1430,12 +1433,12 @@ loop:
         if (!computed) {
             final String name = ((PropertyKey)propertyName).getPropertyName();
             if (!generator && isIdent && type != LPAREN && name.equals("get")
-                    && (!ES7_CLASS_FIELD || !isES7() || isPropertyName(token))) {
+                    && (!isAtLeastES7() || isPropertyName(token))) {
                 PropertyFunction methodDefinition = propertyGetterFunction(methodToken, methodLine, flags);
                 verifyAllowedMethodName(methodDefinition.key, isStatic, methodDefinition.computed, generator, async, true);
                 return new PropertyNode(methodToken, finish, methodDefinition.key, null, methodDefinition.functionNode, null, isStatic, methodDefinition.computed, decorators);
             } else if (!generator && isIdent && type != LPAREN && name.equals("set")
-                    && (!ES7_CLASS_FIELD || !isES7() || isPropertyName(token))) {
+                    && (!isAtLeastES7() || isPropertyName(token))) {
                 PropertyFunction methodDefinition = propertySetterFunction(methodToken, methodLine, flags);
                 verifyAllowedMethodName(methodDefinition.key, isStatic, methodDefinition.computed, generator, async, true);
                 return new PropertyNode(methodToken, finish, methodDefinition.key, null, null, methodDefinition.functionNode, isStatic, methodDefinition.computed, decorators);
@@ -1453,7 +1456,7 @@ loop:
             }
         }
         // ClassFieldInitializer
-        if (ES7_CLASS_FIELD && isES7() && type != LPAREN && !async) {
+        if (isAtLeastES7() && type != LPAREN && !async) {
             // XXX decorators on properties
             Expression assignment = null;
             if (type == ASSIGN) {
@@ -1471,7 +1474,7 @@ loop:
      * https://github.com/wycats/javascript-decorators
      */
     private List<Expression> decoratorList() {
-        if (!isES7() || !ES7_DECORATOR || type != AT) {
+        if (!isAtLeastES7() || type != AT) {
             return Collections.emptyList();
         }
         List<Expression> decorators = new ArrayList<>();
@@ -1509,7 +1512,7 @@ loop:
 
     private boolean isPropertyName(long token) {
         TokenType currentType = Token.descType(token);
-        if (ES6_COMPUTED_PROPERTY_NAME && currentType == LBRACKET && isES6()) {
+        if (currentType == LBRACKET && isAtLeastES6()) {
             // computed property
             return true;
         }
@@ -1528,6 +1531,7 @@ loop:
         case OCTAL:
         case BINARY_NUMBER:
         case FLOATING:
+        case BIGINT:
             return true;
         default:
             return isIdentifierName(token);
@@ -1582,7 +1586,7 @@ loop:
      */
     private void verifyIdent(final IdentNode ident, final String contextString) {
         verifyStrictIdent(ident, contextString);
-        if (isES6()) {
+        if (isAtLeastES6()) {
             TokenType tokenType = TokenLookup.lookupKeyword(ident.getName(), 0, ident.getName().length());
             if (tokenType != IDENT && tokenType.getKind() != TokenKind.FUTURESTRICT) {
                 throw error(expectMessage(IDENT));
@@ -1611,6 +1615,23 @@ loop:
 
             if (ident.isFutureStrictName()) {
                 throw error(AbstractParser.message("strict.name", ident.getName(), contextString), ident.getToken());
+            }
+        }
+    }
+
+    /**
+     * Verify, that lexical bindings are declared only once and don't collide
+     * with var declared bindings.
+     */
+    private void verifyBlockScopedBindings(final List<Statement> statements) {
+        Set<String> boundNames = new HashSet<>();
+        for(Statement s: statements) {
+            if(s instanceof VarNode) {
+                String name = ((VarNode) s).getName().getName();
+                if(((VarNode) s).isBlockScoped() && boundNames.contains(name)) {
+                    throw error(AbstractParser.message("redeclaration.of.binding", name), s.getToken());
+                }
+                boundNames.add(name);
             }
         }
     }
@@ -1810,7 +1831,7 @@ loop:
     }
 
     private Expression bindingIdentifierOrPattern(String contextString) {
-        if (isBindingIdentifier() || !(ES6_DESTRUCTURING && isES6())) {
+        if (isBindingIdentifier() || !(isAtLeastES6())) {
             return bindingIdentifier(contextString);
         } else {
             return bindingPattern();
@@ -2112,7 +2133,7 @@ loop:
                 break;
 
             case IDENT:
-                if (ES6_FOR_OF && "of".equals(getValue())) {
+                if (isAtLeastES6() && "of".equals(getValue())) {
                     isForOf = true;
                     // fall through
                 } else {
@@ -2176,6 +2197,7 @@ loop:
             }
             if (outer != null) {
                 restoreBlock(outer);
+                verifyBlockScopedBindings(outer.getStatements());
                 if (body != null) {
                     appendStatement(new BlockStatement(forLine, new Block(
                                     outer.getToken(),
@@ -2212,7 +2234,7 @@ loop:
             case COMMENT:
                 continue;
             case IDENT:
-                if (ofContextualKeyword && ES6_FOR_OF && "of".equals(getValue(getToken(k + i)))) {
+                if (ofContextualKeyword && isAtLeastES6() && "of".equals(getValue(getToken(k + i)))) {
                     return false;
                 }
                 // fall through
@@ -2750,25 +2772,38 @@ loop:
                 final int  catchLine  = line;
                 final long catchToken = token;
                 next();
-                expect(LPAREN);
-                final IdentNode exception = getIdent();
 
-                // ECMA 12.4.1 strict mode restrictions
-                verifyIdent(exception, "catch argument");
-
-                // Nashorn extension: catch clause can have optional
-                // condition. So, a single try can have more than one
-                // catch clause each with it's own condition.
-                final Expression ifExpression;
-                if (env.syntaxExtensions && type == IF) {
-                    next();
-                    // Get the exception condition.
-                    ifExpression = expression();
-                } else {
-                    ifExpression = null;
+                if(env.ecmascriptEdition < 10) {
+                    expectDontAdvance(LPAREN);
                 }
 
-                expect(RPAREN);
+                final IdentNode exception;
+                final Expression ifExpression;
+
+                if (type == LPAREN) {
+                    next();
+
+                    exception = getIdent();
+
+                    // ECMA 12.4.1 strict mode restrictions
+                    verifyIdent(exception, "catch argument");
+
+                    // Nashorn extension: catch clause can have optional
+                    // condition. So, a single try can have more than one
+                    // catch clause each with it's own condition.
+                    if (env.syntaxExtensions && type == IF) {
+                        next();
+                        // Get the exception condition.
+                        ifExpression = expression();
+                    } else {
+                        ifExpression = null;
+                    }
+
+                    expect(RPAREN);
+                } else {
+                    exception = null;
+                    ifExpression = null;
+                }
 
                 final ParserContextBlockNode catchBlock = newBlock();
                 try {
@@ -2778,6 +2813,9 @@ loop:
                     appendStatement(catchNode);
                 } finally {
                     restoreBlock(catchBlock);
+
+                    verifyBlockScopedBindings(catchBlock.getStatements());
+
                     catchBlocks.add(new Block(catchBlock.getToken(), Math.max(finish, Token.descPosition(catchBlock.getToken())), catchBlock.getFlags() | Block.IS_SYNTHETIC, catchBlock.getStatements()));
                 }
 
@@ -2807,6 +2845,8 @@ loop:
         } finally {
             restoreBlock(outer);
         }
+
+        verifyBlockScopedBindings(outer.getStatements());
 
         appendStatement(new BlockStatement(startLine, new Block(tryToken, finish, outer.getFlags() | Block.IS_SYNTHETIC, outer.getStatements())));
     }
@@ -2881,6 +2921,7 @@ loop:
         case FLOATING:
         case REGEX:
         case XML:
+        case BIGINT:
             return getLiteral();
         case EXECSTRING:
             return execString(primaryLine, primaryToken);
@@ -2900,13 +2941,13 @@ loop:
         case LPAREN:
             next();
 
-            if (ES6_ARROW_FUNCTION && isES6()) {
+            if (isAtLeastES6()) {
                 if (type == RPAREN) {
                     // ()
                     nextOrEOL();
                     expectDontAdvance(ARROW);
                     return new ExpressionList(primaryToken, finish, Collections.emptyList());
-                } else if (ES6_REST_PARAMETER && type == ELLIPSIS) {
+                } else if (type == ELLIPSIS) {
                     // (...rest)
                     IdentNode restParam = formalParameterList(false, false).get(0);
                     expectDontAdvance(RPAREN);
@@ -3018,7 +3059,7 @@ loop:
                 break;
 
             case ELLIPSIS:
-                if (ES6_SPREAD_ARRAY) {
+                if (isAtLeastES6()) {
                     hasSpread = true;
                     spreadToken = token;
                     next();
@@ -3126,7 +3167,7 @@ loop:
                     final FunctionNode prevGetter = existingProperty.getGetter();
                     final FunctionNode prevSetter = existingProperty.getSetter();
 
-                    if (!isES6()) {
+                    if (!isAtLeastES6()) {
                         checkPropertyRedefinition(property, value, getter, setter, prevValue, prevGetter, prevSetter);
                     } else {
                         if (property.getKey() instanceof IdentNode && ((IdentNode)property.getKey()).isProtoPropertyName() &&
@@ -3203,6 +3244,7 @@ loop:
         case OCTAL:
         case BINARY_NUMBER:
         case FLOATING:
+        case BIGINT:
             return getLiteral();
         default:
             return getIdentifierName().setIsPropertyName();
@@ -3230,7 +3272,7 @@ loop:
      * @return PropertyName node
      */
     private Expression propertyName() {
-        if (ES6_COMPUTED_PROPERTY_NAME && type == LBRACKET && isES6()) {
+        if (type == LBRACKET && isAtLeastES6()) {
             return computedPropertyName();
         } else {
             return (Expression)literalPropertyName();
@@ -3261,16 +3303,16 @@ loop:
         final boolean isIdentifier;
 
         List<Expression> decorators = decoratorList();
-        boolean method = ES7_DECORATOR && isES7() && !decorators.isEmpty();
+        boolean method = isAtLeastES7() && !decorators.isEmpty();
 
         boolean async = false;
-        if (ES7_ASYNC_FUNCTION && isES7() && type == IDENT && ASYNC_IDENT.equals((String) getValue(token))
+        if (isAtLeastES7() && type == IDENT && ASYNC_IDENT.equals((String) getValue(token))
                 && lookaheadIsAsyncFunction(true)) {
             async = true;
             next();
         }
         boolean generator = false;
-        if (!async && ES6_GENERATOR_FUNCTION && type == MUL && isES6()) {
+        if (!async && type == MUL && isAtLeastES6()) {
             generator = true;
             next();
         }
@@ -3285,7 +3327,7 @@ loop:
             // Get IDENT.
             final String ident = (String)expectValue(IDENT);
 
-            if (type != COLON && (type != LPAREN || !isES6())) {
+            if (type != COLON && (type != LPAREN || !isAtLeastES6())) {
                 final long getSetToken = propertyToken;
 
                 switch (ident) {
@@ -3307,7 +3349,7 @@ loop:
                 identNode = identNode.setIsProtoPropertyName();
             }
             propertyName = identNode;
-        } else if (type == ELLIPSIS && ES7_REST_SPREAD_PROPERTY && isES7()) {
+        } else if (type == ELLIPSIS && isAtLeastES7()) {
             if (method) {
                 // we do not allow decorators on spread property
                 throw error(AbstractParser.message("decorator.method.only"));
@@ -3328,11 +3370,11 @@ loop:
             expectDontAdvance(LPAREN);
         }
 
-        if (type == LPAREN && isES6()) {
+        if (type == LPAREN && isAtLeastES6()) {
             propertyValue = propertyMethodFunction(propertyName, propertyToken, functionLine, generator, async, FunctionNode.IS_METHOD, computed).functionNode;
-        } else if (isIdentifier && (type == COMMARIGHT || type == RBRACE || type == ASSIGN) && isES6()) {
+        } else if (isIdentifier && (type == COMMARIGHT || type == RBRACE || type == ASSIGN) && isAtLeastES6()) {
             propertyValue = createIdentNode(propertyToken, finish, ((IdentNode) propertyName).getPropertyName());
-            if (type == ASSIGN && ES6_DESTRUCTURING) {
+            if (type == ASSIGN && isAtLeastES6()) {
                 // TODO if not destructuring, this is a SyntaxError
                 long assignToken = token;
                 next();
@@ -3518,6 +3560,9 @@ loop:
      * SuperCall :
      *      super Arguments
      *
+     * ImportCall :
+     *       import ( AssignmentExpression )
+     *
      * See 11.2
      *
      * Parse left hand side expression.
@@ -3538,6 +3583,14 @@ loop:
             }
 
             lhs = new CallNode(callLine, callToken, finish, lhs, arguments, false);
+        } else if (type == IMPORT && this.isAtLeastES11()) {
+            final String name2 = type.getName();
+            next();
+            IdentNode identNode = new IdentNode(token, finish, name2);
+
+            final List<Expression> arguments = optimizeList(argumentList());
+
+            lhs = new CallNode(callLine, callToken, finish, identNode, arguments, false);
         }
 
 loop:
@@ -3569,13 +3622,16 @@ loop:
 
                 break;
             }
+            case OPTIONAL_ACCESS:
             case PERIOD: {
+                boolean optional = type == OPTIONAL_ACCESS;
+
                 next();
 
                 final IdentNode property = getIdentifierName();
 
                 // Create property access node.
-                lhs = new AccessNode(callToken, finish, lhs, property.getName());
+                lhs = new AccessNode(callToken, finish, lhs, property.getName(), optional);
 
                 break;
             }
@@ -3612,7 +3668,7 @@ loop:
         // NEW is tested in caller.
         next();
 
-        if (ES6_NEW_TARGET && type == PERIOD && isES6()) {
+        if (type == PERIOD && isAtLeastES6()) {
             next();
             if (type == IDENT && "target".equals(getValue())) {
                 if (lc.getCurrentFunction().isProgram()) {
@@ -3701,7 +3757,7 @@ loop:
 
         case CLASS:
         case AT:
-            if (ES6_CLASS && isES6() && (type == CLASS || (ES7_DECORATOR && isES7() && type == AT))) {
+            if (isAtLeastES6() && (type == CLASS || (isAtLeastES7() && type == AT))) {
                 lhs = classExpression(false, Collections.emptyList());
                 break;
             } else {
@@ -3709,7 +3765,7 @@ loop:
             }
 
         case SUPER:
-            if (ES6_CLASS && isES6()) {
+            if (isAtLeastES6()) {
                 ParserContextFunctionNode currentFunction = getCurrentNonArrowFunction();
                 if (currentFunction.isMethod()) {
                     long identToken = Token.recast(token, IDENT);
@@ -3741,7 +3797,7 @@ loop:
             }
 
         default:
-            if (ES7_ASYNC_FUNCTION && isES7() && type == IDENT && ASYNC_IDENT.equals((String) getValue(token))
+            if (isAtLeastES7() && type == IDENT && ASYNC_IDENT.equals((String) getValue(token))
                     && lookaheadIsAsyncFunction(false)) {
                 nextOrEOL();
                 lhs = functionExpression(false, false, true);
@@ -3776,7 +3832,10 @@ loop:
 
                 break;
             }
+            case OPTIONAL_ACCESS:
             case PERIOD: {
+                boolean optional = type == OPTIONAL_ACCESS;
+
                 if (lhs == null) {
                     throw error(AbstractParser.message("expected.operand", type.getNameOrType()));
                 }
@@ -3786,7 +3845,7 @@ loop:
                 final IdentNode property = getIdentifierName();
 
                 // Create property access node.
-                lhs = new AccessNode(callToken, finish, lhs, property.getName());
+                lhs = new AccessNode(callToken, finish, lhs, property.getName(), optional);
 
                 if (isSuper) {
                     isSuper = false;
@@ -3843,7 +3902,7 @@ loop:
             if (!first) {
                 expect(COMMARIGHT);
                 // if it was a trailing comma
-                if (ES7_TRAILING_COMMA && isES7() && type == RPAREN) {
+                if (isAtLeastES7() && type == RPAREN) {
                     break;
                 }
             } else {
@@ -3851,7 +3910,7 @@ loop:
             }
 
             long spreadToken = 0;
-            if (ES6_SPREAD_ARGUMENT && type == ELLIPSIS && isES6()) {
+            if (type == ELLIPSIS && isAtLeastES6()) {
                 spreadToken = token;
                 next();
             }
@@ -3905,7 +3964,7 @@ loop:
         next();
 
         boolean generator = false;
-        if (ES6_GENERATOR_FUNCTION && type == MUL && isES6()) {
+        if (type == MUL && isAtLeastES6()) {
             generator = true;
             next();
         }
@@ -4051,10 +4110,13 @@ loop:
         }
     }
 
-    private static Block maybeWrapBodyInParameterBlock(Block functionBody, ParserContextBlockNode parameterBlock) {
+    private Block maybeWrapBodyInParameterBlock(Block functionBody, ParserContextBlockNode parameterBlock) {
         assert functionBody.isFunctionBody();
         if (!parameterBlock.getStatements().isEmpty()) {
             parameterBlock.appendStatement(new BlockStatement(functionBody));
+
+            verifyBlockScopedBindings(parameterBlock.getStatements());
+
             return new Block(parameterBlock.getToken(), functionBody.getFinish(), (functionBody.getFlags() | Block.IS_PARAMETER_BLOCK) & ~Block.IS_BODY, parameterBlock.getStatements());
         }
         return functionBody;
@@ -4152,7 +4214,7 @@ loop:
             if (!first) {
                 expect(COMMARIGHT);
                 // if it was a trailing comma
-                if (ES7_TRAILING_COMMA && isES7() && type == endType) {
+                if (isAtLeastES7() && type == endType) {
                     break;
                 }
             } else {
@@ -4160,7 +4222,7 @@ loop:
             }
 
             boolean restParameter = false;
-            if (ES6_REST_PARAMETER && type == ELLIPSIS && isES6()) {
+            if (type == ELLIPSIS && isAtLeastES6()) {
                 next();
                 restParameter = true;
             }
@@ -4173,7 +4235,7 @@ loop:
             final int paramLine = line;
             final String contextString = "function parameter";
             IdentNode ident;
-            if (isBindingIdentifier() || restParameter || !(ES6_DESTRUCTURING && isES6())) {
+            if (isBindingIdentifier() || restParameter || !(isAtLeastES6())) {
                 ident = bindingIdentifier(contextString);
 
                 if (restParameter) {
@@ -4182,7 +4244,7 @@ loop:
                     expectDontAdvance(endType);
                     parameters.add(ident);
                     break;
-                } else if (type == ASSIGN && (ES6_DEFAULT_PARAMETER && isES6())) {
+                } else if (type == ASSIGN && isAtLeastES6()) {
                     next();
                     ident = ident.setIsDefaultParameter();
 
@@ -4384,6 +4446,9 @@ loop:
                 }
             }
         }
+
+        verifyBlockScopedBindings(body.getStatements());
+
         functionBody = new Block(bodyToken, bodyFinish, body.getFlags() | Block.IS_BODY, body.getStatements());
         return functionBody;
     }
@@ -4419,7 +4484,7 @@ loop:
         }
 
         stream.reset();
-        lexer = parserState.createLexer(source, lexer, stream, scripting && env.syntaxExtensions, env.es6, shebang, env.jsx);
+        lexer = parserState.createLexer(source, lexer, stream, scripting && env.syntaxExtensions, env.ecmascriptEdition, shebang, env.jsx);
         line = parserState.line;
         linePosition = parserState.linePosition;
         // Doesn't really matter, but it's safe to treat it as if there were a semicolon before
@@ -4445,8 +4510,8 @@ loop:
             this.linePosition = linePosition;
         }
 
-        Lexer createLexer(final Source source, final Lexer lexer, final TokenStream stream, final boolean scripting, final boolean es6, final boolean shebang, final boolean jsx) {
-            final Lexer newLexer = new Lexer(source, position, lexer.limit - position, stream, scripting, es6, shebang, true, jsx);
+        Lexer createLexer(final Source source, final Lexer lexer, final TokenStream stream, final boolean scripting, final int ecmascriptEdition, final boolean shebang, final boolean jsx) {
+            final Lexer newLexer = new Lexer(source, position, lexer.limit - position, stream, scripting, ecmascriptEdition, shebang, true, jsx);
             newLexer.restoreState(new Lexer.State(position, Integer.MAX_VALUE, line, -1, linePosition, SEMICOLON));
             return newLexer;
         }
@@ -4552,7 +4617,7 @@ loop:
             return verifyIncDecExpression(unaryToken, opType, lhs, false);
 
         default:
-            if (isAwait(token) && ES7_ASYNC_FUNCTION && inAsyncFunction() && isES7()) {
+            if (isAwait(token) && inAsyncFunction() && isAtLeastES7()) {
                 return awaitExpression();
             }
             break;
@@ -4713,13 +4778,13 @@ loop:
         while (type == COMMARIGHT) {
             long commaToken = token;
             next();
-            if (ES7_TRAILING_COMMA && isES7() && parenthesized && type == RPAREN) {
+            if (isAtLeastES7() && parenthesized && type == RPAREN) {
                 // allow trailing comma
                 break;
             }
 
             boolean rhsRestParameter = false;
-            if (ES6_ARROW_FUNCTION && ES6_REST_PARAMETER && type == ELLIPSIS && isES6()) {
+            if (type == ELLIPSIS && isAtLeastES6()) {
                 // (a, b, ...rest) is not a valid expression, unless we're parsing the parameter list of an arrow function (we need to throw the right error).
                 // But since the rest parameter is always last, at least we know that the expression has to end here and be followed by RPAREN and ARROW, so peek ahead.
                 if (isRestParameterEndOfArrowFunctionParameterList()) {
@@ -4804,7 +4869,7 @@ loop:
     }
 
     private boolean checkOperator(final boolean noIn) {
-        return type.isOperator(noIn) && (type != TokenType.EXP || isES6());
+        return type.isOperator(noIn) && (type != TokenType.EXP || isAtLeastES6());
     }
 
     /**
@@ -4821,7 +4886,7 @@ loop:
         // This method is protected so that subclass can get details
         // at assignment expression start point!
 
-        if (type == YIELD && ES6_GENERATOR_FUNCTION && inGeneratorFunction() && isES6()) {
+        if (type == YIELD && inGeneratorFunction() && isAtLeastES6()) {
             return yieldExpression(noIn);
         }
 
@@ -4831,7 +4896,7 @@ loop:
         Expression exprLhs = conditionalExpression(noIn);
 
         boolean asyncArrow = false;
-        if (ES7_ASYNC_FUNCTION && isES7()) {
+        if (isAtLeastES7()) {
             // FIXME do we have a better way
             if ((exprLhs instanceof IdentNode) && ASYNC_IDENT.equals(((IdentNode) exprLhs).getName())) {
                 if (isNonStrictModeIdent() || type == IDENT) {
@@ -4859,7 +4924,7 @@ loop:
             }
         }
 
-        if (ES6_ARROW_FUNCTION && type == ARROW && isES6()) {
+        if (type == ARROW && isAtLeastES6()) {
             if (checkNoLineTerminator()) {
                 final Expression paramListExpr;
                 if (exprLhs instanceof ExpressionList) {
@@ -5273,6 +5338,9 @@ loop:
 
             restoreBlock(body);
             body.setFlag(Block.NEEDS_SCOPE);
+
+            verifyBlockScopedBindings(body.getStatements());
+
             final Block programBody = new Block(functionToken, finish, body.getFlags() | Block.IS_SYNTHETIC | Block.IS_BODY, body.getStatements());
             lc.pop(module);
             lc.pop(script);
@@ -5320,7 +5388,7 @@ loop:
                 decorators.clear();
                 break;
             case AT:
-                if (ES7_DECORATOR && isES7()) {
+                if (isAtLeastES7()) {
                     decorators.addAll(decoratorList());
                     break;
                 }
@@ -5529,11 +5597,20 @@ loop:
         switch (type) {
             case MUL: {
                 next();
+                IdentNode exportName = null;
+                if (type == IDENT && "as".equals(getValue()) && isAtLeastES11()) {
+                    next();
+                    exportName = getIdentifierName();
+                }
                 FromNode from = fromClause();
                 String moduleRequest = from.getModuleSpecifier().getValue();
                 module.addModuleRequest(moduleRequest);
-                module.addStarExportEntry(ExportEntry.exportStarFrom(moduleRequest));
-                module.addExport(new ExportNode(exportToken, Token.descPosition(exportToken), finish, from));
+                if(exportName != null) {
+                    module.addStarExportEntry(ExportEntry.exportStarFromAs(moduleRequest, exportName.getName()));
+                } else {
+                    module.addStarExportEntry(ExportEntry.exportStarFrom(moduleRequest));
+                }
+                module.addExport(new ExportNode(exportToken, Token.descPosition(exportToken), finish, from, exportName));
                 endOfLine();
                 break;
             }
@@ -5585,7 +5662,7 @@ loop:
                         declaration = true;
                         break;
                     default:
-                        if (ES7_ASYNC_FUNCTION && isES7() && type == IDENT && ASYNC_IDENT.equals((String) getValue(token))
+                        if (isAtLeastES7() && type == IDENT && ASYNC_IDENT.equals((String) getValue(token))
                                 && lookaheadIsAsyncFunction(false)) {
                             nextOrEOL();
                             assignmentExpression = functionExpression(false, true, true);
@@ -5639,7 +5716,7 @@ loop:
                 break;
             }
             default:
-                if (ES7_ASYNC_FUNCTION && isES7() && type == IDENT && ASYNC_IDENT.equals((String) getValue(token))
+                if (isAtLeastES7() && type == IDENT && ASYNC_IDENT.equals((String) getValue(token))
                         && lookaheadIsAsyncFunction(false)) {
                     nextOrEOL();
                     FunctionNode functionDeclaration = (FunctionNode) functionExpression(true, true, true);

@@ -51,6 +51,7 @@ import com.oracle.js.parser.ir.visitor.TranslatorNodeVisitor;
 public final class AccessNode extends BaseNode {
     /** Property name. */
     private final String property;
+    private final boolean optional;
 
     /**
      * Constructor
@@ -59,15 +60,18 @@ public final class AccessNode extends BaseNode {
      * @param finish    finish
      * @param base      base node
      * @param property  property
+     * @param optional
      */
-    public AccessNode(final long token, final int finish, final Expression base, final String property) {
+    public AccessNode(final long token, final int finish, final Expression base, final String property, final boolean optional) {
         super(token, finish, base, false, false);
         this.property = property;
+        this.optional = optional;
     }
 
-    private AccessNode(final AccessNode accessNode, final Expression base, final String property, final boolean isFunction, final boolean isSuper) {
+    private AccessNode(final AccessNode accessNode, final Expression base, final String property, final boolean isFunction, final boolean isSuper, boolean optional) {
         super(accessNode, base, isFunction, isSuper);
         this.property = property;
+        this.optional = optional;
     }
 
     /**
@@ -115,11 +119,15 @@ public final class AccessNode extends BaseNode {
         return property;
     }
 
+    public boolean isOptional() {
+        return optional;
+    }
+
     private AccessNode setBase(final Expression base) {
         if (this.base == base) {
             return this;
         }
-        return new AccessNode(this, base, property, isFunction(), isSuper());
+        return new AccessNode(this, base, property, isFunction(), isSuper(), optional);
     }
 
     @Override
@@ -127,7 +135,7 @@ public final class AccessNode extends BaseNode {
         if (isFunction()) {
             return this;
         }
-        return new AccessNode(this, base, property, true, isSuper());
+        return new AccessNode(this, base, property, true, isSuper(), optional);
     }
 
     @Override
@@ -135,6 +143,13 @@ public final class AccessNode extends BaseNode {
         if (isSuper()) {
             return this;
         }
-        return new AccessNode(this, base, property, isFunction(), true);
+        return new AccessNode(this, base, property, isFunction(), true, optional);
+    }
+
+    public AccessNode setOptional() {
+        if (optional) {
+            return this;
+        }
+        return new AccessNode(this, base, property, isFunction(), isSuper(), true);
     }
 }

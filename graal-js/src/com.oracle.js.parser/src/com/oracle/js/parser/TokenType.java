@@ -91,6 +91,7 @@ public enum TokenType {
     DECPREFIX      (UNARY,   "--",   16, true),
     ASSIGN_SUB     (BINARY,  "-=",    2, false),
     PERIOD         (BRACKET, ".",    18, true),
+    OPTIONAL_ACCESS(BRACKET, "?.",   18, true, 11),
     DIV            (BINARY,  "/",    13, true),
     ASSIGN_DIV     (BINARY,  "/=",    2, false),
     COLON          (BINARY,  ":"),
@@ -122,6 +123,10 @@ public enum TokenType {
     BIT_NOT        (UNARY,   "~",     15, false),
     ELLIPSIS       (UNARY,   "..."),
     AT             (UNARY,   "@"),
+    ASSIGN_LOG_AND (BINARY,  "&&=",    2, false, 12),
+    ASSIGN_LOG_OR  (BINARY,  "||=",    2, false, 12),
+    ASSIGN_NULLISH (BINARY,  "??=",    2, false, 12),
+    NULLISH        (BINARY,  "??",     4, true, 11),
 
     // ECMA 7.6.1.1 Keywords, 7.6.1.2 Future Reserved Words.
     // All other Java keywords are commented out.
@@ -192,6 +197,7 @@ public enum TokenType {
     YIELD          (FUTURESTRICT,  "yield"),
 
     DECIMAL        (LITERAL,  null),
+    BIGINT         (LITERAL,  null),
     HEXADECIMAL    (LITERAL,  null),
     OCTAL_LEGACY   (LITERAL,  null),
     OCTAL          (LITERAL,  null),
@@ -242,23 +248,36 @@ public enum TokenType {
     /** Left associativity */
     private final boolean isLeftAssociative;
 
+    private final int ecmascriptEdition;
+
     /** Cache values to avoid cloning. */
     private static final TokenType[] values;
 
     TokenType(final TokenKind kind, final String name) {
-        next              = null;
-        this.kind         = kind;
-        this.name         = name;
-        precedence        = 0;
-        isLeftAssociative = false;
+        this.next              = null;
+        this.kind              = kind;
+        this.name              = name;
+        this.precedence        = 0;
+        this.isLeftAssociative = false;
+        this.ecmascriptEdition = 0;
     }
 
     TokenType(final TokenKind kind, final String name, final int precedence, final boolean isLeftAssociative) {
-        next                   = null;
+        this.next              = null;
         this.kind              = kind;
         this.name              = name;
         this.precedence        = precedence;
         this.isLeftAssociative = isLeftAssociative;
+        this.ecmascriptEdition = 0;
+    }
+
+    TokenType(final TokenKind kind, final String name, final int precedence, final boolean isLeftAssociative, int ecmascriptEdition) {
+        this.next              = null;
+        this.kind              = kind;
+        this.name              = name;
+        this.precedence        = precedence;
+        this.isLeftAssociative = isLeftAssociative;
+        this.ecmascriptEdition = ecmascriptEdition;
     }
 
     /**
@@ -323,6 +342,10 @@ public enum TokenType {
         return name != null && name.length() > 0 && name.charAt(0) == c;
     }
 
+    public int getEcmascriptEdition() {
+        return ecmascriptEdition;
+    }
+
     static TokenType[] getValues() {
        return values;
     }
@@ -350,10 +373,17 @@ public enum TokenType {
         case ASSIGN_SHL:
         case ASSIGN_SHR:
         case ASSIGN_SUB:
+        case ASSIGN_LOG_AND:
+        case ASSIGN_LOG_OR:
+        case ASSIGN_NULLISH:
            return true;
         default:
            return false;
         }
+    }
+
+    public boolean isSupported(int targetEcmascriptEdition) {
+        return ecmascriptEdition <= targetEcmascriptEdition;
     }
 
     static {
