@@ -5938,7 +5938,7 @@ loop:
             } else {
                 fn.setFlag(FunctionNode.HAS_NESTED_EVAL);
             }
-            final ParserContextBlockNode body = lc.getFunctionBody(fn);
+            final ParserContextBaseNode body = lc.getFunctionBody(fn);
             // NOTE: it is crucial to mark the body of the outer function as needing scope even when we skip
             // parsing a nested function. functionBody() contains code to compensate for the lack of invoking
             // this method when the parser skips a nested function.

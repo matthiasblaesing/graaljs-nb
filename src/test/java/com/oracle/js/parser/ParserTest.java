@@ -228,6 +228,11 @@ public class ParserTest {
         assertParsesNot(9, "try {} catch {}");
     }
 
+    @Test
+    public void testParseEvalInMethodInModule() {
+        assertParses(Integer.MAX_VALUE, true, false, "import $ from 'jquery'; class e { dummy(x) {eval(x);} }");
+    }
+
     public void assertParses(String script) {
         assertParses(Integer.MAX_VALUE, false, false, script);
     }

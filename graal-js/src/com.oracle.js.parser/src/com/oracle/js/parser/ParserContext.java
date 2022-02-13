@@ -211,10 +211,10 @@ class ParserContext {
      * @param functionNode function node
      * @return body of function node
      */
-    public ParserContextBlockNode getFunctionBody(final ParserContextFunctionNode functionNode) {
+    public ParserContextBaseNode getFunctionBody(final ParserContextFunctionNode functionNode) {
         for (int i = sp - 1; i >= 0; i--) {
             if (stack[i] == functionNode) {
-                return (ParserContextBlockNode) stack[i + 1];
+                return (ParserContextBaseNode) stack[i + 1];
             }
         }
         throw new AssertionError(functionNode.getName() + " not on context stack");
