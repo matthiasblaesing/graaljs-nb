@@ -47,6 +47,7 @@ import com.oracle.js.parser.ir.AccessNode;
 import com.oracle.js.parser.ir.BinaryNode;
 import com.oracle.js.parser.ir.FunctionNode;
 import com.oracle.js.parser.ir.IdentNode;
+import com.oracle.js.parser.ir.IndexNode;
 import com.oracle.js.parser.ir.LexicalContext;
 import com.oracle.js.parser.ir.LiteralNode;
 import com.oracle.js.parser.ir.Node;
@@ -79,7 +80,10 @@ class DumpingVisitor extends NodeVisitor {
             System.out.println(indent() + node.getClass().getName() + " [" + ((BinaryNode) node).tokenType() + "]");
         } else if (node instanceof AccessNode) {
             AccessNode an = (AccessNode) node;
-            System.out.println(indent() + node.getClass().getName() + " [" + an.getBase() + ", " + an.getProperty() + ", " + an.isOptional() + "]");
+            System.out.println(indent() + node.getClass().getName() + " [" + an.isOptional() + "]");
+        } else if (node instanceof IndexNode) {
+            IndexNode an = (IndexNode) node;
+            System.out.println(indent() + node.getClass().getName() + " [" + an.isOptional() + "]");
         } else {
             System.out.println(indent() + node.getClass().getName());
         }

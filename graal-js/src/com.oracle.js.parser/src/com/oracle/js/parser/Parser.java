@@ -3628,10 +3628,22 @@ loop:
 
                 next();
 
-                final IdentNode property = getIdentifierName();
+                if (type == LBRACKET) {
+                    next();
 
-                // Create property access node.
-                lhs = new AccessNode(callToken, finish, lhs, property.getName(), optional);
+                    // Get array index.
+                    final Expression index = expression();
+
+                    expect(RBRACKET);
+
+                    // Create indexing node.
+                    lhs = new IndexNode(callToken, finish, lhs, index, true);
+                } else {
+                    final IdentNode property = getIdentifierName();
+
+                    // Create property access node.
+                    lhs = new AccessNode(callToken, finish, lhs, property.getName(), optional);
+                }
 
                 break;
             }
@@ -3842,10 +3854,22 @@ loop:
 
                 next();
 
-                final IdentNode property = getIdentifierName();
+                if (type == LBRACKET) {
+                    next();
 
-                // Create property access node.
-                lhs = new AccessNode(callToken, finish, lhs, property.getName(), optional);
+                    // Get array index.
+                    final Expression index = expression();
+
+                    expect(RBRACKET);
+
+                    // Create indexing node.
+                    lhs = new IndexNode(callToken, finish, lhs, index, true);
+                } else {
+                    final IdentNode property = getIdentifierName();
+
+                    // Create property access node.
+                    lhs = new AccessNode(callToken, finish, lhs, property.getName(), optional);
+                }
 
                 if (isSuper) {
                     isSuper = false;
