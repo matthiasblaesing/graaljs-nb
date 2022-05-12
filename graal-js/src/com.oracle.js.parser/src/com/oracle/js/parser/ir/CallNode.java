@@ -69,6 +69,8 @@ public final class CallNode extends LexicalContextExpression {
 
     private final int lineNumber;
 
+    private final boolean optional;
+
     /**
      * Constructors
      *
@@ -80,20 +82,39 @@ public final class CallNode extends LexicalContextExpression {
      * @param isNew      true if this is a constructor call with the "new" keyword
      */
     public CallNode(final int lineNumber, final long token, final int finish, final Expression function, final List<Expression> args, final boolean isNew) {
+        this(lineNumber, token, finish, function, args, isNew, false);
+    }
+
+    /**
+     * Constructors
+     *
+     * @param lineNumber line number
+     * @param token token
+     * @param finish finish
+     * @param function the function to call
+     * @param args args to the call
+     * @param isNew true if this is a constructor call with the "new" keyword
+     * @param optional true if this call is optional (i.e. if the function
+     * expression is {@code undefined} the result will be {@code undefined} and
+     * not raise an error)
+     */
+    public CallNode(final int lineNumber, final long token, final int finish, final Expression function, final List<Expression> args, final boolean isNew, final boolean optional) {
         super(token, finish);
 
         this.function       = function;
         this.args           = args;
         this.flags          = isNew ? IS_NEW : 0;
         this.lineNumber     = lineNumber;
+        this.optional       = optional;
     }
 
-    private CallNode(final CallNode callNode, final Expression function, final List<Expression> args, final int flags) {
+    private CallNode(final CallNode callNode, final Expression function, final List<Expression> args, final int flags, boolean optional) {
         super(callNode);
         this.lineNumber = callNode.lineNumber;
         this.function = function;
         this.args = args;
         this.flags = flags;
+        this.optional = optional;
     }
 
     /**
@@ -138,6 +159,10 @@ public final class CallNode extends LexicalContextExpression {
         function.toString(fsb, printType);
         sb.append(fsb);
 
+        if (optional) {
+            sb.append("?.");
+        }
+
         sb.append('(');
 
         boolean first = true;
@@ -172,7 +197,7 @@ public final class CallNode extends LexicalContextExpression {
         if (this.args == args) {
             return this;
         }
-        return new CallNode(this, function, args, flags);
+        return new CallNode(this, function, args, flags, optional);
     }
 
     /**
@@ -204,7 +229,7 @@ public final class CallNode extends LexicalContextExpression {
         if (this.function == function) {
             return this;
         }
-        return new CallNode(this, function, args, flags);
+        return new CallNode(this, function, args, flags, optional);
     }
 
     /**
@@ -219,6 +244,17 @@ public final class CallNode extends LexicalContextExpression {
         if (this.flags == flags) {
             return this;
         }
-        return new CallNode(this, function, args, flags);
+        return new CallNode(this, function, args, flags, optional);
+    }
+
+    public boolean isOptional() {
+        return optional;
+    }
+
+    public CallNode setOptional() {
+        if (optional) {
+            return this;
+        }
+        return new CallNode(this, function, args, flags, true);
     }
 }

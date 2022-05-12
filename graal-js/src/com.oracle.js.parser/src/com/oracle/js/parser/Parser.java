@@ -3622,13 +3622,24 @@ loop:
 
                 break;
             }
-            case OPTIONAL_ACCESS:
-            case PERIOD: {
-                boolean optional = type == OPTIONAL_ACCESS;
-
+            case PERIOD:
                 next();
 
-                if (type == LBRACKET) {
+                final IdentNode property = getIdentifierName();
+
+                // Create property access node.
+                lhs = new AccessNode(callToken, finish, lhs, property.getName(), false);
+                break;
+            case OPTIONAL_ACCESS:
+                next();
+
+                if(type == LPAREN) {
+                    // Get NEW or FUNCTION arguments.
+                    final List<Expression> arguments = optimizeList(argumentList());
+
+                    // Create call node.
+                    lhs = new CallNode(callLine, callToken, finish, lhs, arguments, false, true);
+                } else if (type == LBRACKET) {
                     next();
 
                     // Get array index.
@@ -3639,14 +3650,13 @@ loop:
                     // Create indexing node.
                     lhs = new IndexNode(callToken, finish, lhs, index, true);
                 } else {
-                    final IdentNode property = getIdentifierName();
+                    final IdentNode property2 = getIdentifierName();
 
                     // Create property access node.
-                    lhs = new AccessNode(callToken, finish, lhs, property.getName(), optional);
+                    lhs = new AccessNode(callToken, finish, lhs, property2.getName(), true);
                 }
 
                 break;
-            }
             case TEMPLATE:
             case TEMPLATE_HEAD: {
                 // tagged template literal
@@ -3844,32 +3854,17 @@ loop:
 
                 break;
             }
-            case OPTIONAL_ACCESS:
             case PERIOD: {
-                boolean optional = type == OPTIONAL_ACCESS;
-
                 if (lhs == null) {
                     throw error(AbstractParser.message("expected.operand", type.getNameOrType()));
                 }
 
                 next();
 
-                if (type == LBRACKET) {
-                    next();
+                final IdentNode property = getIdentifierName();
 
-                    // Get array index.
-                    final Expression index = expression();
-
-                    expect(RBRACKET);
-
-                    // Create indexing node.
-                    lhs = new IndexNode(callToken, finish, lhs, index, true);
-                } else {
-                    final IdentNode property = getIdentifierName();
-
-                    // Create property access node.
-                    lhs = new AccessNode(callToken, finish, lhs, property.getName(), optional);
-                }
+                // Create property access node.
+                lhs = new AccessNode(callToken, finish, lhs, property.getName(), false);
 
                 if (isSuper) {
                     isSuper = false;
