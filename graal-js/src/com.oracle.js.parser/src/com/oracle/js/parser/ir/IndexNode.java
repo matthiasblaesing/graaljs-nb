@@ -51,6 +51,19 @@ import com.oracle.js.parser.ir.visitor.TranslatorNodeVisitor;
 public final class IndexNode extends BaseNode {
     /** Property index. */
     private final Expression index;
+    private final boolean optional;
+
+    /**
+     * Constructors
+     *
+     * @param token token
+     * @param finish finish
+     * @param base base node for access
+     * @param index index for access
+     */
+    public IndexNode(final long token, final int finish, final Expression base, final Expression index) {
+        this(token, finish, base, index, false);
+    }
 
     /**
      * Constructors
@@ -59,15 +72,20 @@ public final class IndexNode extends BaseNode {
      * @param finish  finish
      * @param base    base node for access
      * @param index   index for access
+     * @param optional true if this index operation is optional (i.e. if the
+     * base expression is {@code undefined} the result will be
+     * {@code undefined} and not raise an error)
      */
-    public IndexNode(final long token, final int finish, final Expression base, final Expression index) {
+    public IndexNode(final long token, final int finish, final Expression base, final Expression index, final boolean optional) {
         super(token, finish, base, false, false);
         this.index = index;
+        this.optional = optional;
     }
 
-    private IndexNode(final IndexNode indexNode, final Expression base, final Expression index, final boolean isFunction, final boolean isSuper) {
+    private IndexNode(final IndexNode indexNode, final Expression base, final Expression index, final boolean isFunction, final boolean isSuper, final boolean optional) {
         super(indexNode, base, isFunction, isSuper);
         this.index = index;
+        this.optional = optional;
     }
 
     @Override
@@ -99,6 +117,10 @@ public final class IndexNode extends BaseNode {
             sb.append(')');
         }
 
+        if (optional) {
+            sb.append("?.");
+        }
+
         sb.append('[');
         index.toString(sb, printType);
         sb.append(']');
@@ -116,7 +138,7 @@ public final class IndexNode extends BaseNode {
         if (this.base == base) {
             return this;
         }
-        return new IndexNode(this, base, index, isFunction(), isSuper());
+        return new IndexNode(this, base, index, isFunction(), isSuper(), optional);
     }
 
     /**
@@ -128,7 +150,7 @@ public final class IndexNode extends BaseNode {
         if (this.index == index) {
             return this;
         }
-        return new IndexNode(this, base, index, isFunction(), isSuper());
+        return new IndexNode(this, base, index, isFunction(), isSuper(), optional);
     }
 
     @Override
@@ -136,7 +158,7 @@ public final class IndexNode extends BaseNode {
         if (isFunction()) {
             return this;
         }
-        return new IndexNode(this, base, index, true, isSuper());
+        return new IndexNode(this, base, index, true, isSuper(), optional);
     }
 
     @Override
@@ -144,6 +166,17 @@ public final class IndexNode extends BaseNode {
         if (isSuper()) {
             return this;
         }
-        return new IndexNode(this, base, index, isFunction(), true);
+        return new IndexNode(this, base, index, isFunction(), true, optional);
+    }
+
+    public boolean isOptional() {
+        return optional;
+    }
+
+    public IndexNode setOptional() {
+        if (optional) {
+            return this;
+        }
+        return new IndexNode(this, base, index, isFunction(), isSuper(), true);
     }
 }

@@ -180,6 +180,26 @@ public class ParserTest {
     }
 
     @Test
+    public void testOptionalIndexing() {
+        assertParses("let a = b[1][2]");
+        assertParses("let a = b['c']['d']");
+        assertParses("let a = b[c][d]");
+        assertParses("let a = b?.[1]?.[2]");
+        assertParses("let a = b?.['c']?.['d']");
+        assertParses("let a = b?.[c]?.[d]");
+        assertParsesNot(10, "let a = b?.[1]?.[2]");
+        assertParsesNot(10, "let a = b?.['c']?.['d']");
+        assertParsesNot(10, "let a = b?.[c]?.[d]");
+    }
+
+    @Test
+    public void testOptionalCalling() {
+        assertParses("b()");
+        assertParses("b?.()");
+        assertParsesNot(10, "b?.()");
+    }
+
+    @Test
     public void testImportExport() {
         assertParses(Integer.MAX_VALUE, true, false, "import v from 'mod';");
         assertParses(Integer.MAX_VALUE, true, false, "import * as ns from 'mod';");

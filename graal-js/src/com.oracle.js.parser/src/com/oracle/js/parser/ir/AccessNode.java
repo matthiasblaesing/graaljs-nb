@@ -105,7 +105,12 @@ public final class AccessNode extends BaseNode {
         if (needsParen) {
             sb.append(')');
         }
-        sb.append('.');
+
+        if (optional) {
+            sb.append("?.");
+        } else {
+            sb.append('.');
+        }
 
         sb.append(property);
     }
