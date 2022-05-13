@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>eu.doppel-helix.netbeans.lib</groupId>
     <artifactId>graaljs-parser</artifactId>
-    <version>1.1-SNAPSHOT</version>
+    <version>1.1</version>
     <packaging>jar</packaging>
 
     <name>graaljs-parser</name>
@@ -41,7 +41,7 @@
         <connection>scm:git:https://github.com/matthiasblaesing/graaljs-nb</connection>
         <developerConnection>scm:git:git@github.com:matthiasblaesing/graaljs-nb.git</developerConnection>
         <url>https://github.com/matthiasblaesing/graaljs-nb</url>
-      <tag>HEAD</tag>
+      <tag>graaljs-parser-1.1</tag>
   </scm>
 
     <build>
