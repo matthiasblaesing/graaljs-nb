@@ -52,6 +52,7 @@ import com.oracle.js.parser.ir.IndexNode;
 import com.oracle.js.parser.ir.LexicalContext;
 import com.oracle.js.parser.ir.LiteralNode;
 import com.oracle.js.parser.ir.Node;
+import com.oracle.js.parser.ir.PropertyNode;
 import com.oracle.js.parser.ir.visitor.NodeVisitor;
 
 class DumpingVisitor extends NodeVisitor {
@@ -76,7 +77,14 @@ class DumpingVisitor extends NodeVisitor {
         } else if (node instanceof LiteralNode) {
             System.out.println(indent() + node.getClass().getName() + " [" + ((LiteralNode) node).getValue() + "]");
         } else if (node instanceof FunctionNode) {
-            System.out.println(indent() + node.getClass().getName() + " [" + ((FunctionNode) node).getName() + ", " + (((FunctionNode) node).isAsync() ? "async" : "") + "]");
+            FunctionNode fn = (FunctionNode) node;
+            System.out.printf("%s%s [%s, kind=%s, isAsync=%b, isMethod=%b]%n",
+                    indent(),
+                    node.getClass().getName(),
+                    fn.getName(),
+                    fn.getKind().name(),
+                    fn.isAsync(),
+                    fn.isMethod());
         } else if (node instanceof BinaryNode) {
             System.out.println(indent() + node.getClass().getName() + " [" + ((BinaryNode) node).tokenType() + "]");
         } else if (node instanceof AccessNode) {
@@ -88,6 +96,9 @@ class DumpingVisitor extends NodeVisitor {
         } else if (node instanceof CallNode) {
             CallNode cn = (CallNode) node;
             System.out.println(indent() + node.getClass().getName() + " [" + cn.isOptional() + "]");
+        } else if (node instanceof PropertyNode) {
+            PropertyNode pn = (PropertyNode) node;
+            System.out.println(indent() + node.getClass().getName() + " [static=" + pn.isStatic() + "]");
         } else {
             System.out.println(indent() + node.getClass().getName());
         }

@@ -45,11 +45,19 @@ package com.oracle.js.parser;
 import com.oracle.js.parser.ir.FunctionNode;
 import com.oracle.js.parser.ir.LexicalContext;
 import com.oracle.js.parser.ir.Node;
+import com.oracle.js.parser.ir.visitor.NodeVisitor;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.lang.reflect.Array;
+import java.util.function.Predicate;
+
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+
 import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class ParserTest {
 
@@ -253,6 +261,28 @@ public class ParserTest {
         assertParses(Integer.MAX_VALUE, true, false, "import $ from 'jquery'; class e { dummy(x) {eval(x);} }");
     }
 
+    @Test
+    public void testAsyncMethod() {
+        FunctionNode programm = parse(13, false, "function a() {}; async function b() {}; class x { y(){} async z(){} }");
+
+        FunctionNode a = findNode(programm, functionNodeWithName("a"), FunctionNode.class);
+        FunctionNode b = findNode(programm, functionNodeWithName("b"), FunctionNode.class);
+        FunctionNode y = findNode(programm, functionNodeWithName("y"), FunctionNode.class);
+        FunctionNode z = findNode(programm, functionNodeWithName("z"), FunctionNode.class);
+        assertFalse(a.isAsync());
+        assertTrue(b.isAsync());
+        assertFalse(y.isAsync());
+        assertTrue(z.isAsync());
+        assertFalse(a.isMethod());
+        assertFalse(b.isMethod());
+        assertTrue(y.isMethod());
+        assertTrue(z.isMethod());
+    }
+
+    private Predicate<Node> functionNodeWithName(String name) {
+        return n -> n instanceof FunctionNode && name.equals(((FunctionNode) n).getName());
+    }
+
     public void assertParses(String script) {
         assertParses(Integer.MAX_VALUE, false, false, script);
     }
@@ -264,7 +294,6 @@ public class ParserTest {
     public void assertParsesNot(int ecmascriptVersion, String script) {
         assertParses(ecmascriptVersion, false, true, script);
     }
-
 
     public void assertParses(int emcascriptVersion, boolean module, boolean invert, String script) {
         FunctionNode fn = null;
@@ -317,6 +346,23 @@ public class ParserTest {
     private void dumpTree(Node fn) {
         DumpingVisitor dv = new DumpingVisitor(new LexicalContext());
         fn.accept(dv);
+    }
+
+    private <T extends Node> T findNode(Node base, Predicate<Node> predicate, Class<T> resultType) {
+        T[] result = (T[]) Array.newInstance(resultType, 1);
+        LexicalContext lc = new LexicalContext();
+        NodeVisitor nv = new NodeVisitor(lc) {
+            @Override
+            protected boolean enterDefault(Node node) {
+                if(predicate.test(node)) {
+                    result[0] = resultType.cast(node);
+                    return false;
+                }
+                return true;
+            }
+        };
+        base.accept(nv);
+        return result[0];
     }
 
     private static class ParsingFailedException extends IllegalStateException {}

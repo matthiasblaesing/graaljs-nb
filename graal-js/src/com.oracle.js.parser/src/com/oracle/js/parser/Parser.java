@@ -1450,7 +1450,7 @@ loop:
                     }
                 }
                 if (async) {
-                    flags = FunctionNode.IS_ASYNC;
+                    flags |= FunctionNode.IS_ASYNC;
                 }
                 verifyAllowedMethodName(propertyName, isStatic, computed, generator, async, false);
             }

@@ -59,7 +59,8 @@ public class ManualTest {
 //        Source source = Source.sourceFor("dummy.js", "async function hallo() { return 'Welt';}");
 //        Source source = Source.sourceFor("dummy.js", "async (a,b) => { return 'Welt';}");
 //        Source source = Source.sourceFor("dummy.js", "var a = import('test');");
-        Source source = Source.sourceFor("dummy.js", "try {} catch (e) {}");
+//        Source source = Source.sourceFor("dummy.js", "try {} catch (e) {}");
+        Source source = Source.sourceFor("dummy.js", "function a() {}; async function b() {}; class x { y(){} async z(){} }");
         ScriptEnvironment.Builder builder = ScriptEnvironment.builder();
         Parser parser = new Parser(
                 builder.emptyStatements(true).ecmacriptEdition(13).jsx(true).build(),
