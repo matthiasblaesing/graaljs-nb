@@ -213,7 +213,7 @@ public class Block extends Node implements BreakableNode, Terminal, Flags<Block>
     }
 
     /**
-     * Test if this block represents a <tt>catch</tt> block in a <tt>try</tt> statement.
+     * Test if this block represents a {@code true} block in a {@code try} statement.
      * This is used by the Splitter as catch blocks are not be subject to splitting.
      *
      * @return true if this block represents a catch block in a try statement.
